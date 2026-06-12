@@ -48,7 +48,11 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
   const { list: notifList, push } = useNotifications();
 
   /* Access control: Mazen only */
-  const isAuthorized = user?.email === 'mazen@mazen.engineer';
+  const ADMIN_EMAILS = [
+    'mazen@mazen.engineer',
+    'mazenmohemed123@gmail.com',
+  ];
+  const isAuthorized = ADMIN_EMAILS.includes(user?.email ?? '');
 
   useEffect(() => {
     if (!isAuthorized) return;
