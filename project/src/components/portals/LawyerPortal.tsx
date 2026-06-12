@@ -5,11 +5,11 @@ import { CasesTable } from '../tables/CasesTable';
 import { CaseTimeline } from '../cases/CaseTimeline';
 import { RealtimeChat } from '../chat/RealtimeChat';
 import { TeamChat } from '../chat/TeamChat';
-import { PeerChat } from '../chat/PeerChat';
 import { TeamManagement } from '../team/TeamManagement';
 import { SubScreen } from '../pricing/SubScreen';
 import { VoicePanel } from '../voice/VoicePanel';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useLocale } from '../../hooks/useLocale';
 import { useRole, type Profile } from '../../context/RoleContext';
 import { useCase } from '../../context/CaseContext';
 import { supabase, registerPush } from '../../services/supabase';
@@ -45,12 +45,6 @@ interface LawyerAvailabilityData {
   is_active: boolean;
 }
 
-interface Teammate {
-  id: string;
-  full_name: string;
-  role: string;
-  avatar_url?: string;
-}
 
 interface LawyerPortalProps {
   user: any;
@@ -59,6 +53,7 @@ interface LawyerPortalProps {
 }
 
 export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPortalProps) {
+  const { locale, setLocale } = useLocale();
   const [profile, setProfile] = useState<Profile>(initProfile);
   const [tab, setTab] = useState('cases');
   const [showVoice, setShowVoice] = useState(false);
@@ -87,14 +82,12 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   const [instapayAddress, setInstapayAddress] = useState(initProfile.instapay_address || '');
   const [instapayQRUrl, setInstapayQRUrl] = useState<string | null>(null);
   const [instapayQRPreview, setInstapayQRPreview] = useState<string | null>(null); // Local preview before upload
-  const [peerTarget, setPeerTarget] = useState<Teammate | null>(null);
-  const [teamDirectory, setTeamDirectory] = useState<Teammate[]>([]);
   const [bankDetails, setBankDetails] = useState(initProfile.bank_account_details || {});
   const [savingPayment, setSavingPayment] = useState(false);
   const [currency, setCurrency] = useState<CurrencyCode>((initProfile as any).currency || 'EGP');
 
   const { list: notifList, push } = useNotifications();
-  const { canViewChat, canViewCaseDetails, canManageBilling, tier, activeRole, setProfile: setCtxProfile } = useRole();
+  const { canViewChat, canViewCaseDetails, canManageBilling, tier, activeRole } = useRole();
   const {
     cases, loadCases, addCase, updateCase, deleteCase,
     selectedCase, setSelectedCase, loadEvents, loadAppointments, appointments,
@@ -104,11 +97,6 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   const effectiveLawyerId = profile.master_lawyer_id || user.id;
   const isMasterLawyer = !profile.master_lawyer_id;
   const isFreeTierLocked = isCaseCreationBlocked(tier, cases.length);
-
-  const updateProfile = (p: Profile) => {
-    setProfile(p);
-    setCtxProfile(p);
-  };
 
   // Debt enforcement: Block portal if debt > 500 EGP
   useEffect(() => {
@@ -121,18 +109,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
 
   useEffect(() => { loadCases(effectiveLawyerId); loadAppointments(effectiveLawyerId); }, [effectiveLawyerId, loadCases, loadAppointments]);
 
-  // Load team directory for peer chat
-  useEffect(() => {
-    if (tier !== 'team') return;
-    const loadTeam = async () => {
-      const { data } = await supabase.from('profiles')
-        .select('id, full_name, role, avatar_url')
-        .or(`id.eq.${effectiveLawyerId},master_lawyer_id.eq.${effectiveLawyerId}`)
-        .in('role', ['owner', 'partner', 'lawyer', 'assistant', 'secretary', 'accountant']);
-      if (data) setTeamDirectory(data.filter((m: any) => m.id !== user.id));
-    };
-    loadTeam();
-  }, [effectiveLawyerId, tier]);
+
 
   // Load availability
   useEffect(() => {
@@ -537,6 +514,26 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as any)}
+            style={{
+              background: 'rgba(255,255,255,.12)',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,.2)',
+              borderRadius: 10,
+              padding: '6px 10px',
+              fontSize: 12,
+              fontFamily: "'Cairo',sans-serif",
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <option value="ar" style={{ color: '#000' }}>🇸🇦 ع</option>
+            <option value="en" style={{ color: '#000' }}>🇬🇧 En</option>
+            <option value="fr" style={{ color: '#000' }}>🇫🇷 Fr</option>
+            <option value="tr" style={{ color: '#000' }}>🇹🇷 Tr</option>
+          </select>
           <Button size="sm" onClick={() => setShowVoice(true)} disabled={isFreeTierLocked} style={{ background: 'rgba(255,255,255,.12)', color: isFreeTierLocked ? 'rgba(255,255,255,.4)' : '#fff', border: '1px solid rgba(255,255,255,.2)', opacity: isFreeTierLocked ? 0.5 : 1 }}>
             <Mic size={14} /> إضافة قضية
           </Button>
@@ -616,72 +613,24 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
 
         {tab === 'team' && tier === 'team' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {peerTarget ? (
-              <PeerChat
-                masterLawyerId={effectiveLawyerId}
-                userId={user.id}
-                target={peerTarget}
-                onBack={() => setPeerTarget(null)}
+            <TeamChat
+              masterLawyerId={effectiveLawyerId}
+              userId={user.id}
+              userRole={activeRole}
+              push={push}
+              userEmail={user.email}
+            />
+            {isMasterLawyer && (
+              <TeamManagement
+                masterLawyerId={user.id}
                 push={push}
               />
-            ) : (
-              <>
-                <TeamChat
-                  masterLawyerId={effectiveLawyerId}
-                  userId={user.id}
-                  userRole={activeRole}
-                  push={push}
-                  userEmail={user.email}
-                />
-                {/* Peer-to-Peer Staff Directory */}
-                {teamDirectory.length > 0 && (
-                  <Card style={{ padding: 18 }}>
-                    <h3 style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 15, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Users size={16} /> دليل الفريق — محادثة خاصة
-                    </h3>
-                    <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 12 }}>اضغط على أي عضو لفتح محادثة مباشرة وآمنة</p>
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                      {teamDirectory.map((m) => {
-                        const roleIcon = m.role === 'partner' ? '🏛️' : m.role === 'lawyer' ? '⚖️' : m.role === 'secretary' ? '📋' : m.role === 'accountant' ? '🧮' : '🤝';
-                        return (
-                          <button
-                            key={m.id}
-                            onClick={() => setPeerTarget(m)}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 10,
-                              padding: '10px 16px', borderRadius: 12,
-                              border: '1px solid var(--border)', background: '#FAFBFE',
-                              cursor: 'pointer', transition: 'all .15s',
-                            }}
-                          >
-                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                              {m.avatar_url ? <img src={m.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 16 }}>{roleIcon}</span>}
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{m.full_name}</p>
-                              <p style={{ fontSize: 10, color: 'var(--muted)' }}>
-                                {m.role === 'partner' ? 'شريك' : m.role === 'lawyer' ? 'محامي' : m.role === 'secretary' ? 'سكرتير' : m.role === 'accountant' ? 'محاسب' : 'مساعد'}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </Card>
-                )}
-                {isMasterLawyer && (
-                  <TeamManagement
-                    masterLawyerId={user.id}
-                    push={push}
-                  />
-                )}
-              </>
             )}
           </div>
         )}
 
         {tab === 'sub' && (
-          <SubScreen profile={profile} onUpdateProfile={updateProfile} push={push} caseCount={cases.length} />
+          <SubScreen profile={profile} push={push} caseCount={cases.length} />
         )}
 
         {tab === 'billing' && canManageBilling && (
@@ -894,6 +843,49 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                     }} />
                   </button>
                 </div>
+              </div>
+            </Card>
+
+            {/* Language Selector Card */}
+            <Card style={{ padding: 22 }}>
+              <h3 style={{ fontWeight: 800, marginBottom: 14, color: 'var(--navy)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Settings size={18} /> لغة واجهة النظام / System Language
+              </h3>
+              <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>اختر لغة واجهة النظام المفضلة لديك</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                {[
+                  { code: 'ar', label: 'العربية', flag: '🇸🇦' },
+                  { code: 'en', label: 'English', flag: '🇬🇧' },
+                  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+                  { code: 'tr', label: 'Türkçe', flag: '🇹🇷' }
+                ].map((lang) => {
+                  const isActive = locale === lang.code;
+                  return (
+                    <button
+                      key={lang.code}
+                      onClick={() => setLocale(lang.code as any)}
+                      style={{
+                        padding: '10px 8px',
+                        borderRadius: 10,
+                        border: isActive ? '2px solid var(--navy)' : '1px solid var(--border)',
+                        background: isActive ? 'var(--navy)' : '#fff',
+                        color: isActive ? '#fff' : 'var(--text)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 4,
+                        transition: 'all 0.15s',
+                        fontWeight: 700,
+                        fontSize: 12,
+                      }}
+                    >
+                      <span style={{ fontSize: 18 }}>{lang.flag}</span>
+                      <span>{lang.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </Card>
 

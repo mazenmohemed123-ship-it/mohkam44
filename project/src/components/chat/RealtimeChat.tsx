@@ -23,6 +23,7 @@ interface Message {
 interface CaseInfo {
   id: string;
   case_number: string;
+  client_id?: string;
   client_name?: string;
   client_phone?: string;
   case_type?: string;
@@ -45,17 +46,115 @@ interface RealtimeChatProps {
 }
 
 export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatProps) {
-  const { canViewChat, tier } = useRole();
+  const { canViewChat, tier, activeRole } = useRole();
   const [selectedCase, setSelectedCase] = useState<CaseInfo | null>(null);
   const [msgs, setMsgs] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const MAX_MSG_LEN = 2000;
   const [loading, setLoading] = useState(true);
+
+  const [linkedClients, setLinkedClients] = useState<any[]>([]);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [masterLawyerId, setMasterLawyerId] = useState<string>('');
+
+  useEffect(() => {
+    const fetchMasterAndClients = async () => {
+      try {
+        const { data: myProfile } = await supabase
+          .from('profiles')
+          .select('master_lawyer_id')
+          .eq('id', userId)
+          .single();
+        const masterId = myProfile?.master_lawyer_id || userId;
+        setMasterLawyerId(masterId);
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone_number, avatar_url')
+          .eq('role', 'client')
+          .eq('linked_lawyer_id', masterId);
+
+        if (!error && data) {
+          setLinkedClients(data);
+        }
+      } catch (err) {
+        console.error('Error fetching clients:', err);
+      }
+    };
+    fetchMasterAndClients();
+  }, [userId]);
+
+  const startChatWithClient = async (client: any) => {
+    setShowNewChatModal(false);
+    setSearchQuery('');
+
+    const existingCase = cases.find(
+      (c) => c.client_id === client.id || c.client_phone === client.phone_number
+    );
+
+    if (existingCase) {
+      setSelectedCase(existingCase);
+      return;
+    }
+
+    try {
+      const { data: dbCases } = await supabase
+        .from('cases')
+        .select('*')
+        .eq('lawyer_id', masterLawyerId)
+        .eq('client_id', client.id)
+        .limit(1);
+
+      if (dbCases && dbCases.length > 0) {
+        setSelectedCase(dbCases[0]);
+        return;
+      }
+
+      const { data: newCase } = await supabase
+        .from('cases')
+        .insert([{
+          case_number: 'GENERAL-CHAT',
+          client_name: client.full_name || 'موكل',
+          client_phone: client.phone_number || '',
+          case_type: 'محادثة عامة',
+          judgment: 'نشط',
+          total_fees: 0,
+          admin_fees: 0,
+          lawyer_id: masterLawyerId,
+          client_id: client.id,
+        }])
+        .select('*')
+        .single();
+
+      if (newCase) {
+        if (tier === 'team') {
+          const { data: staffProfiles } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('master_lawyer_id', masterLawyerId);
+          if (staffProfiles && staffProfiles.length > 0) {
+            const membershipInserts = staffProfiles.map(s => ({
+              user_id: s.id,
+              case_id: newCase.id
+            }));
+            await supabase.from('memberships').insert(membershipInserts);
+          }
+        }
+        setSelectedCase(newCase);
+      } else {
+        push('❌ خطأ في إنشاء المحادثة', 'danger');
+      }
+    } catch (err) {
+      console.error('Error starting chat:', err);
+      push('❌ خطأ في إنشاء المحادثة', 'danger');
+    }
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [quotaWarning, setQuotaWarning] = useState<string | null>(null);
+  const MAX_MSG_LEN = 2000;
   const endRef = useRef<HTMLDivElement>(null);
   const chRef = useRef<any>(null);
 
@@ -150,6 +249,7 @@ export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatPro
     const { error } = await supabase.from('messages').insert([{
       case_id: selectedCase.id,
       sender_id: userId,
+      sender_role: activeRole,
       message_text: safeInput || (attachment ? '📎 مرفق' : ''),
       attachment_url: attachmentUrl,
       attachment_type: attachmentType,
@@ -158,7 +258,7 @@ export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatPro
 
     if (!error) setInput('');
     else push('خطأ في الإرسال', 'danger');
-  }, [input, selectedCase, userId, push, tier, userEmail]);
+  }, [input, selectedCase, userId, push, tier, userEmail, activeRole]);
 
   const deleteMessage = async (id: string) => {
     await supabase.from('messages').update({ is_deleted: true, message_text: '🚫 تم حذف هذه الرسالة' }).eq('id', id);
@@ -199,7 +299,21 @@ export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatPro
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           {!sidebarCollapsed && (
-            <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--navy)' }}>قائمة القضايا</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--navy)' }}>القضايا</span>
+              <button
+                onClick={() => setShowNewChatModal(true)}
+                style={{
+                  background: 'var(--navy)', color: '#fff', border: 'none',
+                  borderRadius: 6, width: 22, height: 22, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14, fontWeight: 'bold'
+                }}
+                title="بدء محادثة جديدة"
+              >
+                +
+              </button>
+            </div>
           )}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -479,6 +593,64 @@ export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatPro
             <h3 style={{ fontSize: 18, fontWeight: 900, color: 'var(--danger)', marginBottom: 10 }}>تم تجاوز الحد</h3>
             <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.8 }}>{quotaWarning}</p>
             <Button variant="primary" fullWidth onClick={() => setQuotaWarning(null)} style={{ marginTop: 16 }}>فهمت</Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* New Chat Modal */}
+      {showNewChatModal && (
+        <Modal onClose={() => setShowNewChatModal(false)}>
+          <div style={{ padding: 20 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 900, color: 'var(--navy)', marginBottom: 12, textAlign: 'right' }}>💬 بدء محادثة جديدة مع موكل</h3>
+            <input
+              type="text"
+              placeholder="البحث بالاسم أو الهاتف..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              dir="rtl"
+              style={{
+                width: '100%', padding: '10px 12px', border: '1.5px solid var(--border)',
+                borderRadius: 8, fontSize: 13, fontFamily: "'Cairo',sans-serif", outline: 'none',
+                marginBottom: 14,
+              }}
+            />
+            <div style={{ maxHeight: 250, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {linkedClients
+                .filter((c) =>
+                  (c.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  (c.phone_number || '').includes(searchQuery)
+                )
+                .map((client) => (
+                  <button
+                    key={client.id}
+                    onClick={() => startChatWithClient(client)}
+                    style={{
+                      width: '100%', padding: '10px 12px', border: 'none',
+                      background: '#F5F8FF', borderRadius: 8, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      transition: 'background .15s', textAlign: 'right'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#E6F0FF'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = '#F5F8FF'; }}
+                  >
+                    <div style={{
+                      width: 32, height: 32, borderRadius: '50%',
+                      background: 'var(--navy)', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      color: '#fff', fontSize: 14, fontWeight: 'bold'
+                    }}>
+                      {client.full_name?.charAt(0) || 'C'}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{client.full_name}</p>
+                      <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace" }}>{client.phone_number || '—'}</p>
+                    </div>
+                  </button>
+                ))}
+              {linkedClients.length === 0 && (
+                <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12, padding: 10 }}>لا يوجد موكلون مسجلون بعد</p>
+              )}
+            </div>
           </div>
         </Modal>
       )}

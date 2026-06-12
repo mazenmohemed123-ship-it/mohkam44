@@ -104,12 +104,12 @@ export function TeamManagement({ masterLawyerId, push }: TeamManagementProps) {
       }
 
       if (authData.user) {
+        const newUserId = authData.user.id;
         const profile: Record<string, any> = {
-          id: authData.user.id,
+          id: newUserId,
           full_name: sanitize(addName),
           role: addRole,
           phone_number: addPhone || null,
-          staff_email: addEmail,
           tier: 'team',
           master_lawyer_id: masterLawyerId,
           can_view_billing: false,
@@ -123,6 +123,20 @@ export function TeamManagement({ masterLawyerId, push }: TeamManagementProps) {
         if (profileError) {
           push('خطأ في إنشاء الملف الشخصي', 'danger');
         } else {
+          // Attach the new staff member to all existing cases
+          const { data: casesData } = await supabase
+            .from('cases')
+            .select('id')
+            .eq('lawyer_id', masterLawyerId);
+
+          if (casesData && casesData.length > 0) {
+            const memberships = casesData.map((c) => ({
+              user_id: newUserId,
+              case_id: c.id,
+            }));
+            await supabase.from('memberships').insert(memberships);
+          }
+
           push(`✓ تم إنشاء حساب ${addName}`, 'success');
           setAddName(''); setAddRole('assistant'); setAddPhone(''); setAddEmail(''); setAddPassword('');
           setShowAddForm(false);

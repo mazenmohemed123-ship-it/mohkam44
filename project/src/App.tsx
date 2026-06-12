@@ -10,6 +10,7 @@ import { CaseProvider } from './context/CaseContext';
 import { supabase } from './services/supabase';
 import { Spinner } from './components/atoms';
 import type { Profile } from './context/RoleContext';
+import { useLocale } from './hooks/useLocale';
 import './styles/theme.css';
 
 type AppScreen = 'role_gate' | 'auth_lawyer' | 'auth_client';
@@ -32,6 +33,7 @@ interface ClientSession {
 }
 
 function AppContent() {
+  const { setLocale } = useLocale();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +44,74 @@ function AppContent() {
   const urlLawyerId = params.get('join_lawyer');
   const inviteToken = params.get('client_invite_token');
   const firmPortalLawyerId = parseFirmPortalPath();
+
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const paymentId = queryParams.get('payment_id');
+    const paymobOrderId = queryParams.get('paymob_order_id');
+    const isSandbox = queryParams.get('payment_sandbox') === '1';
+    const amount = queryParams.get('amount');
+    const curr = queryParams.get('currency') || 'EGP';
+
+    if (paymentId && paymobOrderId) {
+      setVerifyingPayment(true);
+      setPaymentStatus('pending');
+
+      const verify = async () => {
+        if (isSandbox) {
+          // Simulate Paymob webhook call
+          try {
+            await supabase.functions.invoke('paymob-webhook', {
+              body: {
+                type: "TRANSACTION",
+                obj: {
+                  id: `sandbox_txn_${Date.now()}`,
+                  success: true,
+                  amount_cents: Math.round(Number(amount) * 100),
+                  currency: curr,
+                  order: { id: paymobOrderId }
+                }
+              }
+            });
+          } catch (err) {
+            console.error("Error triggering sandbox webhook:", err);
+          }
+        }
+
+        // Poll the database to verify the payment record has updated to 'success'
+        let checks = 0;
+        const interval = setInterval(async () => {
+          const { data, error } = await supabase
+            .from('payments')
+            .select('status')
+            .eq('id', paymentId)
+            .single();
+
+          if (!error && data?.status === 'success') {
+            clearInterval(interval);
+            setPaymentStatus('success');
+            setTimeout(() => {
+              window.history.replaceState({}, document.title, window.location.pathname);
+              window.location.reload();
+            }, 2000);
+          } else if (error || data?.status === 'failed' || checks > 15) {
+            clearInterval(interval);
+            setPaymentStatus('failed');
+            setTimeout(() => {
+              setVerifyingPayment(false);
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }, 3000);
+          }
+          checks++;
+        }, 1500);
+      };
+
+      verify();
+    }
+  }, []);
 
   // Check for existing session
   useEffect(() => {
@@ -141,6 +211,9 @@ function AppContent() {
           .then(({ data }) => {
             if (data) {
               setProfile(data as Profile);
+              if (data.language) {
+                setLocale(data.language as any);
+              }
             }
             setLoading(false);
           });
@@ -153,7 +226,12 @@ function AppContent() {
       if (session?.user) {
         setUser(session.user);
         const { data: prof } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-        setProfile(prof as Profile);
+        if (prof) {
+          setProfile(prof as Profile);
+          if (prof.language) {
+            setLocale(prof.language as any);
+          }
+        }
       } else {
         setUser(null);
         setProfile(null);
@@ -202,10 +280,66 @@ function AppContent() {
 
   // Authenticated: show portal
   if (user && profile) {
-    if (profile.role === 'client') {
-      return <ClientPortal user={user} profile={profile} onLogout={logout} urlLawyerId={urlLawyerId || firmPortalLawyerId || profile.linked_lawyer_id} />;
-    }
-    return <LawyerPortal user={user} profile={profile} onLogout={logout} />;
+    return (
+      <>
+        {profile.role === 'client' ? (
+          <ClientPortal user={user} profile={profile} onLogout={logout} urlLawyerId={urlLawyerId || firmPortalLawyerId || profile.linked_lawyer_id} />
+        ) : (
+          <LawyerPortal user={user} profile={profile} onLogout={logout} />
+        )}
+        {verifyingPayment && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(10, 25, 47, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontFamily: "'Cairo', sans-serif"
+          }}>
+            <div style={{
+              background: '#112240',
+              padding: 40,
+              borderRadius: 20,
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              textAlign: 'center',
+              maxWidth: 400,
+              width: '90%',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+            }}>
+              {paymentStatus === 'pending' && (
+                <>
+                  <Spinner size={36} color="var(--gold)" />
+                  <h3 style={{ marginTop: 24, fontWeight: 800, fontSize: 18 }}>جاري التحقق من عملية الدفع...</h3>
+                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 8 }}>Verifying payment transaction with Paymob...</p>
+                </>
+              )}
+              {paymentStatus === 'success' && (
+                <>
+                  <div style={{ fontSize: 54, color: '#10B981', marginBottom: 16 }}>✓</div>
+                  <h3 style={{ fontWeight: 800, fontSize: 20 }}>تم تأكيد الدفع بنجاح!</h3>
+                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 8 }}>Payment successfully confirmed. Refreshing portal...</p>
+                </>
+              )}
+              {paymentStatus === 'failed' && (
+                <>
+                  <div style={{ fontSize: 54, color: '#EF4444', marginBottom: 16 }}>✗</div>
+                  <h3 style={{ fontWeight: 800, fontSize: 20 }}>فشلت عملية الدفع</h3>
+                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 8 }}>Payment transaction failed or was cancelled.</p>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </>
+    );
   }
 
   // Unauthenticated: show auth screens

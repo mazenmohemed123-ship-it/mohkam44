@@ -422,6 +422,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     const lawyerId = urlLawyerId || profile?.linked_lawyer_id;
     if (!lawyerId) return null;
 
+    // ابحث في الـ aggregatedCases الموجودة أول
     const existing = aggregatedCases.find(
       (c) => c.lawyer_id === lawyerId && c.case_number === 'GENERAL-CHAT'
     );
@@ -430,73 +431,26 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       return existing;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('cases')
-        .select('*')
-        .eq('lawyer_id', lawyerId)
-        .eq('case_number', 'GENERAL-CHAT')
-        .eq('client_id', user.id)
-        .limit(1);
+    // اجلبها من قاعدة البيانات
+    const { data, error } = await supabase
+      .from('cases')
+      .select('*')
+      .eq('lawyer_id', lawyerId)
+      .eq('case_number', 'GENERAL-CHAT')
+      .eq('client_id', user.id)
+      .limit(1)
+      .maybeSingle();
 
-      if (!error && data && data.length > 0) {
-        const c = data[0];
-        setSelectedCase(c);
-        setAggregatedCases((prev) => prev.some(ac => ac.id === c.id) ? prev : [c, ...prev]);
-        return c;
-      }
-
-      const { data: newCase } = await supabase
-        .from('cases')
-        .insert([{
-          case_number: 'GENERAL-CHAT',
-          client_name: profile.full_name || 'موكل',
-          client_phone: profile.phone_number || '',
-          case_type: 'محادثة عامة',
-          judgment: 'نشط',
-          total_fees: 0,
-          admin_fees: 0,
-          lawyer_id: lawyerId,
-          client_id: user.id,
-        }])
-        .select('*')
-        .single();
-
-      if (newCase) {
-        if (lawyerTier === 'team') {
-          const { data: staffProfiles } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('master_lawyer_id', lawyerId);
-          if (staffProfiles && staffProfiles.length > 0) {
-            const membershipInserts = staffProfiles.map(s => ({
-              user_id: s.id,
-              case_id: newCase.id
-            }));
-            await supabase.from('memberships').insert(membershipInserts);
-          }
-        }
-        setSelectedCase(newCase);
-        setAggregatedCases((prev) => prev.some(ac => ac.id === newCase.id) ? prev : [newCase, ...prev]);
-        return newCase;
-      } else {
-        const { data: retryData } = await supabase
-          .from('cases')
-          .select('*')
-          .eq('lawyer_id', lawyerId)
-          .eq('case_number', 'GENERAL-CHAT')
-          .eq('client_id', user.id)
-          .limit(1);
-        if (retryData && retryData.length > 0) {
-          const c = retryData[0];
-          setSelectedCase(c);
-          setAggregatedCases((prev) => prev.some(ac => ac.id === c.id) ? prev : [c, ...prev]);
-          return c;
-        }
-      }
-    } catch (e) {
-      console.error('Error in ensureGeneralChatCase:', e);
+    if (!error && data) {
+      setSelectedCase(data);
+      setAggregatedCases(prev =>
+        prev.some(ac => ac.id === data.id) ? prev : [data, ...prev]
+      );
+      return data;
     }
+
+    // لو مفيش case — مش هننشئه، بس نعرض رسالة
+    console.warn('No GENERAL-CHAT case found for client');
     return null;
   };
 
@@ -1095,7 +1049,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     if (c) {
       setCurrentScreen('live_chat');
     } else {
-      push('⚠️ خطأ في تهيئة المحادثة مع موظف المكتب', 'danger');
+      push('يرجى التواصل مع مكتب المحامي لبدء المحادثة', 'warning');
     }
   };
 
@@ -1107,7 +1061,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     if (c) {
       setCurrentScreen('live_chat');
     } else {
-      push('⚠️ خطأ في تهيئة المحادثة مع المحامي', 'danger');
+      push('يرجى التواصل مع مكتب المحامي لبدء المحادثة', 'warning');
     }
   };
 

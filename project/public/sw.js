@@ -34,11 +34,23 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
-  // Network-first strategy for API and Supabase/realtime calls
-  if (url.origin.includes('supabase') || url.pathname.includes('/api/')) {
+  if (url.origin !== self.location.origin) {
+    return fetch(e.request);
+  }
+
+  // Network-only for API, Supabase, and realtime, strictly excluding sensitive user data from cache
+  if (
+    url.origin.includes('supabase') || 
+    url.pathname.includes('/api/') || 
+    url.pathname.includes('/v1/') ||
+    e.request.headers.get('Authorization')
+  ) {
     e.respondWith(
       fetch(e.request).catch(() => {
-        return caches.match(e.request);
+        return new Response(JSON.stringify({ error: "Offline - Connection Lost" }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' }
+        });
       })
     );
     return;
@@ -49,7 +61,13 @@ self.addEventListener('fetch', (e) => {
     caches.match(e.request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
       return fetch(e.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200 && e.request.method === 'GET') {
+        // Only cache static local files, excluding any non-GET requests or dynamic routes
+        if (
+          networkResponse && 
+          networkResponse.status === 200 && 
+          e.request.method === 'GET' &&
+          !url.pathname.includes('/private/')
+        ) {
           const cacheCopy = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(e.request, cacheCopy);
@@ -61,6 +79,10 @@ self.addEventListener('fetch', (e) => {
         if (e.request.mode === 'navigate') {
           return caches.match('/index.html');
         }
+        return new Response(JSON.stringify({ error: 'Not found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
       });
     })
   );

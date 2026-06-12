@@ -22,8 +22,20 @@ export function AuthPage({ onAuth, onBack }: AuthPageProps) {
   const signUp = async () => {
     setLoading(true);
     setError('');
-    if (!name || !email || !phone || !pass) {
+    const trimmedEmail = email.trim();
+    if (!name || !trimmedEmail || !phone || !pass) {
       setError('يرجى تعبئة جميع الحقول');
+      setLoading(false);
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError('صيغة البريد الإلكتروني غير صحيحة');
+      setLoading(false);
+      return;
+    }
+    if (pass.length < 6) {
+      setError('يجب أن تكون كلمة المرور مكونة من 6 أحرف على الأقل');
       setLoading(false);
       return;
     }
@@ -33,7 +45,17 @@ export function AuthPage({ onAuth, onBack }: AuthPageProps) {
       setLoading(false);
       return;
     }
-    const { data, error: authErr } = await supabase.auth.signUp({ email, password: pass });
+    const { data, error: authErr } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password: pass,
+      options: {
+        data: {
+          full_name: name,
+          role: 'lawyer',
+          phone_number: phone
+        }
+      }
+    });
     if (authErr) { setError(authErr.message); setLoading(false); return; }
     if (data.user) {
       const profile: Profile = {
@@ -49,8 +71,24 @@ export function AuthPage({ onAuth, onBack }: AuthPageProps) {
   const signIn = async () => {
     setLoading(true);
     setError('');
-    if (!email || !pass) { setError('يرجى إدخال البريد وكلمة المرور'); setLoading(false); return; }
-    const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password: pass });
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !pass) {
+      setError('يرجى إدخال البريد وكلمة المرور');
+      setLoading(false);
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError('صيغة البريد الإلكتروني غير صحيحة');
+      setLoading(false);
+      return;
+    }
+    if (pass.length < 6) {
+      setError('يجب أن تكون كلمة المرور مكونة من 6 أحرف على الأقل');
+      setLoading(false);
+      return;
+    }
+    const { data, error: authErr } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password: pass });
     if (authErr) { setError(authErr.message); setLoading(false); return; }
     if (data.user) {
       const { data: prof } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();

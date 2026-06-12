@@ -106,13 +106,14 @@ export function ClientZeroAuth({ lawyerId, inviteToken, onAuth, onBack }: Client
     try {
       const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
       if (authError || !authData.user) {
-        throw new Error('Auth failed');
+        throw new Error(authError?.message || 'Auth failed');
       }
       realUserId = authData.user.id;
-    } catch {
-      // DEVELOPMENT FALLBACK: Create local UUID if Supabase auth unavailable
-      console.warn('Supabase auth unavailable, using local session fallback');
-      realUserId = 'client_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 11);
+    } catch (err: any) {
+      console.error('Supabase anonymous auth failed:', err);
+      setError('فشلت عملية المصادقة الآمنة. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
+      setLoading(false);
+      return;
     }
 
     const clientName = cases[0]?.client_name || 'موكل ' + phoneNumber.slice(-4);

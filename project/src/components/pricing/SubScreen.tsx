@@ -5,9 +5,41 @@ import { supabase } from '../../services/supabase';
 import { useRole, type Tier } from '../../context/RoleContext';
 import { isCaseCreationBlocked, TIER_CASE_LIMITS } from '../../services/caseQuotas';
 
+/* ─── Country-based pricing via IP geolocation ─── */
+interface CountryPricing {
+  currency: string;
+  basic: number;
+  pro: number;
+  symbol: string;
+}
+
+async function getPricingByCountry(): Promise<CountryPricing> {
+  try {
+    const res = await fetch('https://ipapi.co/json/');
+    const data = await res.json();
+    const country = data.country_code;
+
+    const pricing: Record<string, CountryPricing> = {
+      EG: { currency: 'EGP', basic: 99,  pro: 199, symbol: 'ج.م' },
+      SA: { currency: 'SAR', basic: 49,  pro: 99,  symbol: 'ر.س' },
+      AE: { currency: 'AED', basic: 49,  pro: 99,  symbol: 'د.إ' },
+      KW: { currency: 'KWD', basic: 15,  pro: 29,  symbol: 'د.ك' },
+      QA: { currency: 'QAR', basic: 55,  pro: 109, symbol: 'ر.ق' },
+      BH: { currency: 'BHD', basic: 15,  pro: 29,  symbol: 'د.ب' },
+      OM: { currency: 'OMR', basic: 15,  pro: 29,  symbol: 'ر.ع' },
+      JO: { currency: 'JOD', basic: 28,  pro: 55,  symbol: 'د.أ' },
+      MA: { currency: 'MAD', basic: 99,  pro: 199, symbol: 'د.م' },
+      LY: { currency: 'LYD', basic: 55,  pro: 109, symbol: 'د.ل' },
+    };
+
+    return pricing[country] || { currency: 'USD', basic: 15, pro: 29, symbol: '$' };
+  } catch {
+    return { currency: 'USD', basic: 15, pro: 29, symbol: '$' };
+  }
+}
+
 interface SubScreenProps {
   profile: any;
-  onUpdateProfile: (p: any) => void;
   push: (msg: string, type: 'success' | 'warning' | 'danger') => void;
   caseCount?: number;
 }
@@ -157,7 +189,7 @@ function detectLang(): 'ar' | 'en' {
   return 'ar';
 }
 
-export function SubScreen({ profile, onUpdateProfile, push, caseCount = 0 }: SubScreenProps) {
+export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
   const [upgrading] = useState<string | null>(null);
   const [currency, setCurrency] = useState<string>('USD');
   const [lang, setLang] = useState<'ar' | 'en'>('ar');
@@ -176,15 +208,28 @@ export function SubScreen({ profile, onUpdateProfile, push, caseCount = 0 }: Sub
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCVV, setCardCVV] = useState('');
 
+  /* Country-based pricing state */
+  const [countryPricing, setCountryPricing] = useState<CountryPricing | null>(null);
+
   useEffect(() => {
     setCurrency(detectCurrency());
     setLang(detectLang());
+    getPricingByCountry().then(setCountryPricing);
   }, []);
 
   const t = TRANSLATIONS[lang];
   const curr = CURRENCY_RATES[currency];
 
-  const convertPrice = (usd: number) => {
+  const convertPrice = (usd: number, tierId?: string) => {
+    // Use country-based pricing if available
+    if (countryPricing && tierId) {
+      if (tierId === 'premium') return `${countryPricing.pro} ${countryPricing.symbol}`;
+      if (tierId === 'team') {
+        // Team = ~2.5x pro price
+        const teamPrice = Math.round(countryPricing.pro * 2.5);
+        return `${teamPrice} ${countryPricing.symbol}`;
+      }
+    }
     const converted = usd * curr.rate;
     if (currency === 'USD') return `$${converted.toFixed(0)}`;
     return `${converted.toFixed(0)} ${curr.symbol}`;
@@ -217,49 +262,29 @@ export function SubScreen({ profile, onUpdateProfile, push, caseCount = 0 }: Sub
 
     try {
       /* Invoke Edge Function for checkout session */
-      const { error } = await supabase.functions.invoke('create-checkout-session', {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: {
           tier: selectedTier.id,
           amount: selectedTier.priceUSD,
           currency: currency.toLowerCase(),
-          cardholder: {
-            name: cardName,
-            last4: cardNumber.slice(-4),
-          },
+          client_id: profile.id,
+          channel: 'card',
+          redirect_origin: window.location.origin,
         },
       });
 
       if (error) throw error;
+      if (!data?.url) throw new Error(lang === 'ar' ? 'لم يتم استرجاع رابط الدفع' : 'No checkout URL returned');
 
-      /* Update profile on success */
-      const { error: updateError } = await supabase.from('profiles').update({
-        tier: selectedTier.id,
-        started_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        is_auto_renew_enabled: autoRenew,
-      }).eq('id', profile.id);
-
-      if (updateError) throw updateError;
-
-      setPaymentSuccess(true);
-      const updated = {
-        ...profile,
-        tier: selectedTier.id,
-        started_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      };
-      onUpdateProfile(updated);
-      push(lang === 'ar' ? `✓ تمت الترقية بنجاح!` : `✓ Upgrade successful!`, 'success');
-
+      push(lang === 'ar' ? 'جاري توجيهك لبوابة دفع Paymob...' : 'Redirecting to Paymob payment gateway...', 'success');
+      
       setTimeout(() => {
-        setShowCheckout(false);
-        setSelectedTier(null);
-      }, 2000);
+        window.location.href = data.url;
+      }, 1000);
     } catch (err: any) {
       push(lang === 'ar' ? 'خطأ في الدفع: ' + err.message : 'Payment error: ' + err.message, 'danger');
+      setProcessing(false);
     }
-
-    setProcessing(false);
   };
 
   return (
@@ -334,7 +359,7 @@ export function SubScreen({ profile, onUpdateProfile, push, caseCount = 0 }: Sub
                 {tierInfo.priceUSD > 0 && (
                   <div style={{ textAlign: lang === 'ar' ? 'right' : 'left' }}>
                     <p style={{ fontSize: 24, fontWeight: 900, color: tierInfo.color, fontFamily: "'JetBrains Mono', monospace" }}>
-                      {convertPrice(tierInfo.priceUSD)}
+                      {convertPrice(tierInfo.priceUSD, tierInfo.id)}
                     </p>
                     <p style={{ fontSize: 10, color: 'var(--muted)' }}>/ {t.month}</p>
                   </div>
@@ -402,7 +427,7 @@ export function SubScreen({ profile, onUpdateProfile, push, caseCount = 0 }: Sub
                 <div style={{ background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)', borderRadius: 14, padding: 16, textAlign: 'center', border: '2px solid var(--gold)' }}>
                   <p style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, marginBottom: 4 }}>{t.amountDue}</p>
                   <p style={{ fontSize: 36, fontWeight: 900, color: 'var(--gold)', fontFamily: "'JetBrains Mono', monospace" }}>
-                    {convertPrice(selectedTier.priceUSD)}
+                    {convertPrice(selectedTier.priceUSD, selectedTier.id)}
                   </p>
                   <p style={{ fontSize: 10, color: 'var(--muted)' }}>{t.monthly}</p>
                 </div>

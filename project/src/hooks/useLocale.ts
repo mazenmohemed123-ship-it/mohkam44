@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../services/supabase';
 
-export type AppLocale = 'ar' | 'en' | 'fr';
+export type AppLocale = 'ar' | 'en' | 'fr' | 'tr';
 
 const LOCALE_MAP: Record<string, AppLocale> = {
   ar: 'ar',
@@ -20,6 +21,8 @@ const LOCALE_MAP: Record<string, AppLocale> = {
   engb: 'en',
   enau: 'en',
   enca: 'en',
+  tr: 'tr',
+  trtr: 'tr',
 };
 
 function detectLocale(): AppLocale {
@@ -32,6 +35,7 @@ function detectLocale(): AppLocale {
     if (prefix === 'ar') return 'ar';
     if (prefix === 'fr') return 'fr';
     if (prefix === 'en') return 'en';
+    if (prefix === 'tr') return 'tr';
   }
   return 'ar';
 }
@@ -46,6 +50,22 @@ export function useLocale() {
     localStorage.setItem('mohkam_locale', locale);
     document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = locale;
+
+    // Sync to Supabase
+    const syncLocale = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await supabase
+            .from('profiles')
+            .update({ language: locale })
+            .eq('id', session.user.id);
+        }
+      } catch (err) {
+        console.error('Error syncing locale to DB:', err);
+      }
+    };
+    syncLocale();
   }, [locale]);
 
   return { locale, setLocale, isRTL: locale === 'ar' };

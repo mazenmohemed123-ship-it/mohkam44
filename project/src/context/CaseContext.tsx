@@ -145,6 +145,26 @@ export function CaseProvider({ children }: { children: ReactNode }) {
   const addCase = useCallback(async (payload: Partial<CaseRow>): Promise<CaseRow | null> => {
     const { data, error } = await supabase.from('cases').insert([payload]).select().single();
     if (error || !data) return null;
+
+    try {
+      const lawyerId = payload.lawyer_id;
+      if (lawyerId) {
+        const { data: staff } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('master_lawyer_id', lawyerId);
+        if (staff && staff.length > 0) {
+          const inserts = staff.map((s) => ({
+            user_id: s.id,
+            case_id: data.id,
+          }));
+          await supabase.from('memberships').insert(inserts);
+        }
+      }
+    } catch (err) {
+      console.error('Error auto-creating memberships:', err);
+    }
+
     setCases((prev) => [data, ...prev]);
     return data;
   }, []);
