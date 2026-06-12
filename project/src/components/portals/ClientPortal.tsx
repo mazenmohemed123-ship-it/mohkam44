@@ -757,7 +757,14 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
     if (num) {
       const safeNum = sanitizeLike(num);
-      const { data, error } = await supabase.from('cases').select('*').ilike('case_number', `%${safeNum}%`).limit(1);
+      const lawyerId = urlLawyerId || profile?.linked_lawyer_id;
+      let caseQuery = supabase
+        .from('cases')
+        .select('*')
+        .eq('case_number', safeNum)
+        .eq('client_id', user.id);
+      if (lawyerId) caseQuery = caseQuery.eq('lawyer_id', lawyerId);
+      const { data, error } = await caseQuery.limit(1);
       if (!error && data?.length) {
         const c = data[0];
         setSelectedCase(c);
