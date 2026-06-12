@@ -52,7 +52,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
     'mazen@mazen.engineer',
     'mazenmohemed123@gmail.com',
   ];
-  const isAuthorized = ADMIN_EMAILS.includes(user?.email ?? '');
+  const isAuthorized = user ? ADMIN_EMAILS.includes(user.email ?? '') : false;
 
   useEffect(() => {
     if (!isAuthorized) return;
@@ -192,23 +192,8 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
     setProcessingAction(null);
   };
 
-  // Unauthorized view
-  if (!isAuthorized) {
-    return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <Card style={{ maxWidth: 400, padding: 40, textAlign: 'center', background: '#fff' }}>
-          <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#FDECEF', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Shield size={40} color="#C41E3A" />
-          </div>
-          <h2 style={{ fontSize: 22, fontWeight: 900, color: '#C41E3A', marginBottom: 12 }}>Access Denied</h2>
-          <p style={{ fontSize: 14, color: '#666', marginBottom: 20 }}>This control center is restricted to authorized administrators only.</p>
-          <Button variant="danger" onClick={onLogout} style={{ width: '100%' }}>
-            <LogOut size={14} style={{ marginRight: 8 }} /> Exit
-          </Button>
-        </Card>
-      </div>
-    );
-  }
+  // Unauthorized — return nothing (admin panel only renders for authorized emails)
+  if (!isAuthorized) return null;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
