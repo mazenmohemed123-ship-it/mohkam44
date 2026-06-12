@@ -20,21 +20,49 @@ async function getPricingByCountry(): Promise<CountryPricing> {
     const country = data.country_code;
 
     const pricing: Record<string, CountryPricing> = {
-      EG: { currency: 'EGP', basic: 99,  pro: 199, symbol: 'ج.م' },
-      SA: { currency: 'SAR', basic: 49,  pro: 99,  symbol: 'ر.س' },
-      AE: { currency: 'AED', basic: 49,  pro: 99,  symbol: 'د.إ' },
-      KW: { currency: 'KWD', basic: 15,  pro: 29,  symbol: 'د.ك' },
-      QA: { currency: 'QAR', basic: 55,  pro: 109, symbol: 'ر.ق' },
-      BH: { currency: 'BHD', basic: 15,  pro: 29,  symbol: 'د.ب' },
-      OM: { currency: 'OMR', basic: 15,  pro: 29,  symbol: 'ر.ع' },
-      JO: { currency: 'JOD', basic: 28,  pro: 55,  symbol: 'د.أ' },
-      MA: { currency: 'MAD', basic: 99,  pro: 199, symbol: 'د.م' },
-      LY: { currency: 'LYD', basic: 55,  pro: 109, symbol: 'د.ل' },
+      // مصر
+      EG: { currency: 'EGP', basic: 1200, pro: 2500, symbol: 'ج.م' },
+
+      // الخليج — مرتفع
+      SA: { currency: 'SAR', basic: 249, pro: 599, symbol: 'ر.س' },
+      AE: { currency: 'AED', basic: 249, pro: 599, symbol: 'د.إ' },
+      KW: { currency: 'KWD', basic: 69,  pro: 169, symbol: 'د.ك' },
+      QA: { currency: 'QAR', basic: 249, pro: 599, symbol: 'ر.ق' },
+      BH: { currency: 'BHD', basic: 69,  pro: 169, symbol: 'د.ب' },
+      OM: { currency: 'OMR', basic: 69,  pro: 169, symbol: 'ر.ع' },
+      JO: { currency: 'JOD', basic: 65,  pro: 159, symbol: 'د.أ' },
+
+      // شمال أفريقيا
+      MA: { currency: 'MAD', basic: 499, pro: 1199, symbol: 'د.م' },
+      LY: { currency: 'LYD', basic: 249, pro: 599,  symbol: 'د.ل' },
+      TN: { currency: 'TND', basic: 249, pro: 599,  symbol: 'د.ت' },
+
+      // أوروبا — أعلى بكتير
+      GB: { currency: 'GBP', basic: 99,  pro: 249, symbol: '£'  },
+      FR: { currency: 'EUR', basic: 109, pro: 269, symbol: '€'  },
+      DE: { currency: 'EUR', basic: 109, pro: 269, symbol: '€'  },
+      IT: { currency: 'EUR', basic: 109, pro: 269, symbol: '€'  },
+      ES: { currency: 'EUR', basic: 109, pro: 269, symbol: '€'  },
+      NL: { currency: 'EUR', basic: 109, pro: 269, symbol: '€'  },
+      BE: { currency: 'EUR', basic: 109, pro: 269, symbol: '€'  },
+      SE: { currency: 'EUR', basic: 109, pro: 269, symbol: '€'  },
+      CH: { currency: 'CHF', basic: 119, pro: 289, symbol: 'Fr' },
+
+      // أمريكا الشمالية
+      US: { currency: 'USD', basic: 59,  pro: 149, symbol: '$'  },
+      CA: { currency: 'CAD', basic: 79,  pro: 199, symbol: 'C$' },
+
+      // أستراليا وآسيا
+      AU: { currency: 'AUD', basic: 89,  pro: 219, symbol: 'A$' },
+      SG: { currency: 'SGD', basic: 79,  pro: 199, symbol: 'S$' },
     };
 
-    return pricing[country] || { currency: 'USD', basic: 15, pro: 29, symbol: '$' };
+    // أي بلد تاني — سعر مرتفع افتراضي
+    return pricing[country] || {
+      currency: 'USD', basic: 59, pro: 149, symbol: '$'
+    };
   } catch {
-    return { currency: 'USD', basic: 15, pro: 29, symbol: '$' };
+    return { currency: 'USD', basic: 59, pro: 149, symbol: '$' };
   }
 }
 
