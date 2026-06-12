@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Scale, LogOut, Phone, Calendar, AlertTriangle, Bot, Send, MessageSquare, Users, ChevronDown, CreditCard, Lock, Wallet, ArrowRight, ChevronLeft } from 'lucide-react';
+import { Scale, LogOut, Phone, Calendar, AlertTriangle, Bot, Send, MessageSquare, Users, ChevronDown, CreditCard, Lock, Wallet, ArrowRight, ChevronLeft, ArrowLeft } from 'lucide-react';
 import { Button, Card, Badge, Modal, NotificationUI } from '../atoms';
 import { supabase, sendPushToClient } from '../../services/supabase';
+import { useLocale } from '../../hooks/useLocale';
 import { checkFloodLimit } from '../../services/floodProtection';
 import { checkChatUploadQuota, getDailyChatUploadCount } from '../../services/chatQuotas';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -123,7 +124,224 @@ const detailsStyle = `
   }
 `;
 
+const TRANSLATIONS = {
+  ar: {
+    title: 'مُحكَم',
+    subtitle: 'بوابة الموكل',
+    logout: 'خروج',
+    yourLawyer: 'محاميك',
+    call: 'اتصال',
+    chat: 'دردشة',
+    smartAssistant: 'المساعد الذكي',
+    humanChat: 'المحامي المباشر',
+    generalChat: 'المحادثة العامة',
+    liveChat: 'مباشر · real-time',
+    botSub: 'محلي · 24/7',
+    writeMsg: 'اكتب رسالتك...',
+    writeBot: 'اكتب سؤالك للمساعد...',
+    clientPortal: 'بوابة الموكل',
+    emergency: 'طوارئ عاجلة',
+    emergencyDesc: 'اضغط لإرسال نداء استغاثة فوري للمحامي',
+    cancel: 'إلغاء',
+    send: 'إرسال',
+    appointments: 'حجز موعد',
+    appointmentsDesc: 'اختر يوماً ووقتاً لحجز موعد مع المحامي',
+    submitAppointment: 'تأكيد الحجز',
+    appointmentSuccess: '✓ تم إرسال طلب الحجز بنجاح',
+    appointmentError: 'خطأ في إرسال طلب الحجز',
+    selectDay: 'اختر اليوم',
+    selectSlot: 'اختر الوقت',
+    reasonLabel: 'سبب الحجز (اختياري)',
+    reasonPlaceholder: 'مثال: استشارة بخصوص قضية عقد العمل...',
+    cases: 'قضاياك',
+    noCases: 'لا توجد قضايا نشطة مسجلة برقم هاتفك حالياً.',
+    searchCasePlaceholder: 'ابحث عن قضية...',
+    caseNum: 'الرقم:',
+    caseType: 'النوع:',
+    judgment: 'الحكم:',
+    totalFees: 'الأتعاب:',
+    adminFees: 'المصاريف:',
+    paymentSuccess: 'تم الدفع بنجاح!',
+    paymentFailed: 'فشلت عملية الدفع',
+    emergencySent: '🆘 تم إرسال نداء الطوارئ للمحامي بنجاح',
+    emergencyError: 'فشل إرسال نداء الطوارئ',
+  },
+  en: {
+    title: 'Mohkam',
+    subtitle: 'Client Portal',
+    logout: 'Logout',
+    yourLawyer: 'Your Lawyer',
+    call: 'Call',
+    chat: 'Chat',
+    smartAssistant: 'Smart Assistant',
+    humanChat: 'Live Lawyer',
+    generalChat: 'General Chat',
+    liveChat: 'Live · real-time',
+    botSub: 'Local · 24/7',
+    writeMsg: 'Type a message...',
+    writeBot: 'Ask the assistant...',
+    clientPortal: 'Client Portal',
+    emergency: 'Emergency SOS',
+    emergencyDesc: 'Press to send an immediate distress alert to the lawyer',
+    cancel: 'Cancel',
+    send: 'Send',
+    appointments: 'Book Appointment',
+    appointmentsDesc: 'Choose a day and time to book an appointment',
+    submitAppointment: 'Confirm Booking',
+    appointmentSuccess: '✓ Appointment request submitted successfully',
+    appointmentError: 'Failed to submit appointment request',
+    selectDay: 'Select Day',
+    selectSlot: 'Select Time',
+    reasonLabel: 'Reason for booking (optional)',
+    reasonPlaceholder: 'e.g., consultation about employment contract...',
+    cases: 'Your Cases',
+    noCases: 'No active cases registered with your phone number currently.',
+    searchCasePlaceholder: 'Search for a case...',
+    caseNum: 'Number:',
+    caseType: 'Type:',
+    judgment: 'Judgment:',
+    totalFees: 'Fees:',
+    adminFees: 'Expenses:',
+    paymentSuccess: 'Payment successful!',
+    paymentFailed: 'Payment failed',
+    emergencySent: '🆘 Emergency alert sent to lawyer successfully',
+    emergencyError: 'Failed to send emergency alert',
+  },
+  fr: {
+    title: 'Mohkam',
+    subtitle: 'Portail Client',
+    logout: 'Déconnexion',
+    yourLawyer: 'Votre Avocat',
+    call: 'Appeler',
+    chat: 'Discuter',
+    smartAssistant: 'Assistant Intelligent',
+    humanChat: 'Avocat en Direct',
+    generalChat: 'Discussion Générale',
+    liveChat: 'En direct · temps réel',
+    botSub: 'Local · 24/7',
+    writeMsg: 'Écrivez un message...',
+    writeBot: 'Posez une question...',
+    clientPortal: 'Portail Client',
+    emergency: 'Urgence SOS',
+    emergencyDesc: 'Appuyez pour envoyer une alerte de détresse immédiate à l\'avocat',
+    cancel: 'Annuler',
+    send: 'Envoyer',
+    appointments: 'Prendre Rendez-vous',
+    appointmentsDesc: 'Choisissez un jour et une heure pour prendre rendez-vous',
+    submitAppointment: 'Confirmer le RDV',
+    appointmentSuccess: '✓ Demande de rendez-vous envoyée avec succès',
+    appointmentError: 'Échec de l\'envoi de la demande',
+    selectDay: 'Choisir le jour',
+    selectSlot: 'Choisir l\'heure',
+    reasonLabel: 'Motif du rendez-vous (optionnel)',
+    reasonPlaceholder: 'ex: consultation sur un contrat de travail...',
+    cases: 'Vos Dossiers',
+    noCases: 'Aucun dossier actif enregistré avec votre numéro de téléphone.',
+    searchCasePlaceholder: 'Rechercher un dossier...',
+    caseNum: 'Numéro:',
+    caseType: 'Type:',
+    judgment: 'Jugement:',
+    totalFees: 'Honoraires:',
+    adminFees: 'Frais:',
+    paymentSuccess: 'Paiement réussi !',
+    paymentFailed: 'Échec du paiement',
+    emergencySent: '🆘 Alerte d\'urgence envoyée avec succès à l\'avocat',
+    emergencyError: 'Échec de l\'envoi de l\'alerte d\'urgence',
+  },
+  tr: {
+    title: 'Mohkam',
+    subtitle: 'Müvekkil Portalı',
+    logout: 'Çıkış Yap',
+    yourLawyer: 'Avukatınız',
+    call: 'Ara',
+    chat: 'Sohbet',
+    smartAssistant: 'Akıllı Asistan',
+    humanChat: 'Canlı Avukat',
+    generalChat: 'Genel Sohbet',
+    liveChat: 'Canlı · eşzamanlı',
+    botSub: 'Yerel · 24/7',
+    writeMsg: 'Bir mesaj yazın...',
+    writeBot: 'Asistana sorun...',
+    clientPortal: 'Müvekkil Portalı',
+    emergency: 'Acil SOS',
+    emergencyDesc: 'Avukata acil bir tehlike uyarısı göndermek için basın',
+    cancel: 'İptal',
+    send: 'Gönder',
+    appointments: 'Randevu Al',
+    appointmentsDesc: 'Randevu almak için bir gün ve saat seçin',
+    submitAppointment: 'Randevuyu Onayla',
+    appointmentSuccess: '✓ Randevu talebi başarıyla iletildi',
+    appointmentError: 'Randevu talebi gönderilemedi',
+    selectDay: 'Gün Seçin',
+    selectSlot: 'Saat Seçin',
+    reasonLabel: 'Randevu nedeni (isteğe bağlı)',
+    reasonPlaceholder: 'örneğin, iş sözleşmesi danışmanlığı...',
+    cases: 'Davalarınız',
+    noCases: 'Şu anda telefon numaranızla kayıtlı aktif dava bulunmamaktadır.',
+    searchCasePlaceholder: 'Dava ara...',
+    caseNum: 'Numara:',
+    caseType: 'Tür:',
+    judgment: 'Karar:',
+    totalFees: 'Ücretler:',
+    adminFees: 'Masraflar:',
+    paymentSuccess: 'Ödeme başarılı!',
+    paymentFailed: 'Ödeme başarısız',
+    emergencySent: '🆘 Acil durum uyarısı avukata başarıyla iletildi',
+    emergencyError: 'Acil durum uyarısı gönderilemedi',
+  }
+};
+
+function getNextWeekdayDate(dayId: string): string {
+  const dayIndexMap: Record<string, number> = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+  };
+  const targetDay = dayIndexMap[dayId];
+  if (targetDay === undefined) return dayId;
+
+  const resultDate = new Date();
+  const currentDay = resultDate.getDay();
+  const steps = (targetDay - currentDay + 7) % 7;
+  resultDate.setDate(resultDate.getDate() + steps);
+
+  const yyyy = resultDate.getFullYear();
+  const mm = String(resultDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(resultDate.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getInitialBotGreeting(lawyerName: string, lang: string): string {
+  if (lang === 'en') return `Hello! 😊 I am Mr. ${lawyerName}'s assistant. How can I help you today?`;
+  if (lang === 'fr') return `Bonjour ! 😊 Je suis l'assistant de Me ${lawyerName}. Comment puis-je vous aider ?`;
+  if (lang === 'tr') return `Merhaba! 😊 Ben Avukat ${lawyerName}'in asistanıyım. Bugün size nasıl yardımcı olabilirim?`;
+  return `مرحباً، أنا مساعد الأستاذ ${lawyerName}. كيف أقدر أساعدك؟`;
+}
+
+const getDayLabel = (dayId: string, lang: string) => {
+  const labels: Record<string, Record<string, string>> = {
+    saturday: { ar: 'السبت', en: 'Saturday', fr: 'Samedi', tr: 'Cumartesi' },
+    sunday: { ar: 'الأحد', en: 'Sunday', fr: 'Dimanche', tr: 'Pazar' },
+    monday: { ar: 'الاثنين', en: 'Monday', fr: 'Lundi', tr: 'Pazartesi' },
+    tuesday: { ar: 'الثلاثاء', en: 'Tuesday', fr: 'Mardi', tr: 'Salı' },
+    wednesday: { ar: 'الأربعاء', en: 'Wednesday', fr: 'Mercredi', tr: 'Çarşamba' },
+    thursday: { ar: 'الخميس', en: 'Thursday', fr: 'Jeudi', tr: 'Perşembe' },
+    friday: { ar: 'الجمعة', en: 'Friday', fr: 'Vendredi', tr: 'Cuma' },
+  };
+  return labels[dayId]?.[lang] || labels[dayId]?.ar;
+};
+
+
 export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPortalProps) {
+  const { locale, setLocale, isRTL } = useLocale();
+  const t = (key: keyof typeof TRANSLATIONS['ar']) => {
+    return TRANSLATIONS[locale]?.[key] || TRANSLATIONS['ar'][key];
+  };
+
   /* Full-screen mobile chat routing state */
   const [currentScreen, setCurrentScreen] = useState<'hub' | 'live_chat'>('hub');
 
@@ -154,7 +372,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   const [showPayment, setShowPayment] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<string>('');
   const [paymentProcessing, setPaymentProcessing] = useState(false);
-  const [paymentDone, setPaymentDone] = useState(false);
+  const [paymentDone] = useState(false);
 
   /* Lawyer availability and payment credentials */
   const [availableDays, setAvailableDays] = useState<string[]>([]);
@@ -174,6 +392,15 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
   /* Team members for Team plan */
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
+  const teamMembersRef = useRef(teamMembers);
+
+  useEffect(() => { teamMembersRef.current = teamMembers; }, [teamMembers]);
+  useEffect(() => {
+    const handleOnline = () => setReconnectTrigger(p => p + 1);
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
 
   /* Quota warning state */
   const [quotaWarning, setQuotaWarning] = useState<string | null>(null);
@@ -190,6 +417,88 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   const endRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { list: notifList, push } = useNotifications();
+
+  const ensureGeneralChatCase = async () => {
+    const lawyerId = urlLawyerId || profile?.linked_lawyer_id;
+    if (!lawyerId) return null;
+
+    const existing = aggregatedCases.find(
+      (c) => c.lawyer_id === lawyerId && c.case_number === 'GENERAL-CHAT'
+    );
+    if (existing) {
+      setSelectedCase(existing);
+      return existing;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('cases')
+        .select('*')
+        .eq('lawyer_id', lawyerId)
+        .eq('case_number', 'GENERAL-CHAT')
+        .eq('client_id', user.id)
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        const c = data[0];
+        setSelectedCase(c);
+        setAggregatedCases((prev) => prev.some(ac => ac.id === c.id) ? prev : [c, ...prev]);
+        return c;
+      }
+
+      const { data: newCase } = await supabase
+        .from('cases')
+        .insert([{
+          case_number: 'GENERAL-CHAT',
+          client_name: profile.full_name || 'موكل',
+          client_phone: profile.phone_number || '',
+          case_type: 'محادثة عامة',
+          judgment: 'نشط',
+          total_fees: 0,
+          admin_fees: 0,
+          lawyer_id: lawyerId,
+          client_id: user.id,
+        }])
+        .select('*')
+        .single();
+
+      if (newCase) {
+        if (lawyerTier === 'team') {
+          const { data: staffProfiles } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('master_lawyer_id', lawyerId);
+          if (staffProfiles && staffProfiles.length > 0) {
+            const membershipInserts = staffProfiles.map(s => ({
+              user_id: s.id,
+              case_id: newCase.id
+            }));
+            await supabase.from('memberships').insert(membershipInserts);
+          }
+        }
+        setSelectedCase(newCase);
+        setAggregatedCases((prev) => prev.some(ac => ac.id === newCase.id) ? prev : [newCase, ...prev]);
+        return newCase;
+      } else {
+        const { data: retryData } = await supabase
+          .from('cases')
+          .select('*')
+          .eq('lawyer_id', lawyerId)
+          .eq('case_number', 'GENERAL-CHAT')
+          .eq('client_id', user.id)
+          .limit(1);
+        if (retryData && retryData.length > 0) {
+          const c = retryData[0];
+          setSelectedCase(c);
+          setAggregatedCases((prev) => prev.some(ac => ac.id === c.id) ? prev : [c, ...prev]);
+          return c;
+        }
+      }
+    } catch (e) {
+      console.error('Error in ensureGeneralChatCase:', e);
+    }
+    return null;
+  };
 
   /* Close dropdowns on outside click */
   useEffect(() => {
@@ -225,7 +534,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
           const lawyerName = data.full_name || 'المحامي';
           setBotMsgs([{
             id: 'w', from: 'bot',
-            text: `مرحباً، أنا مساعد الأستاذ ${lawyerName}. كيف أقدر أساعدك؟\nHello! I'm Mr. ${lawyerName}'s assistant. How can I help?\nBonjour ! Je suis l'assistant de Me ${lawyerName}. Comment puis-je vous aider ?`,
+            text: getInitialBotGreeting(lawyerName, locale),
             time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
           }]);
         }
@@ -261,7 +570,11 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     // Fetch lawyer's QR code for InstaPay
     supabase.storage.from('documents').list(`qr-codes/${lawyerId}`).then(({ data: qrData, error: qrErr }) => {
       if (!qrErr && qrData && qrData.length > 0) {
-        const latest = qrData.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+        const latest = qrData.sort((a, b) => {
+          const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return bTime - aTime;
+        })[0];
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(`qr-codes/${lawyerId}/${latest.name}`);
         if (urlData?.publicUrl) {
           setLawyerPaymentInfo((prev) => prev ? { ...prev, instapay_qr_url: urlData.publicUrl } : { instapay_qr_url: urlData.publicUrl });
@@ -328,10 +641,76 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
             return merged;
           });
           setSelectedCase((curr) => curr || data[0]);
+        } else {
+          ensureGeneralChatCase();
         }
       });
     }
   }, [urlLawyerId, profile?.linked_lawyer_id, profile?.phone_number, user?.id]);
+
+  useEffect(() => {
+    if (botMsgs.length === 1 && botMsgs[0].id === 'w' && lawyerInfo) {
+      const lawyerName = lawyerInfo.full_name || 'المحامي';
+      setBotMsgs([{
+        id: 'w',
+        from: 'bot',
+        text: getInitialBotGreeting(lawyerName, locale),
+        time: botMsgs[0].time,
+      }]);
+    }
+  }, [locale, lawyerInfo]);
+
+  /* Fetch initial messages when case is selected */
+  useEffect(() => {
+    if (!selectedCase) return;
+
+    const fetchMessages = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('case_id', selectedCase.id)
+          .neq('room_type', 'internal_team_chat')
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        if (data) {
+          const mapped = data.map((msg) => {
+            const isSystemMessage = msg.message_text?.startsWith('【') || msg.sender_role === 'system';
+            const matchedMember = teamMembers.find(m => m.id === msg.sender_id);
+            const senderName = matchedMember ? matchedMember.full_name : '';
+            return {
+              id: msg.id,
+              from: (msg.sender_id === user.id
+                ? 'user'
+                : isSystemMessage
+                  ? 'system'
+                  : ['owner', 'partner', 'lawyer'].includes(msg.sender_role || '')
+                    ? 'lawyer'
+                    : ['assistant', 'secretary', 'accountant', 'staff'].includes(msg.sender_role || '')
+                      ? 'staff'
+                      : 'lawyer') as 'lawyer' | 'staff' | 'user' | 'bot' | 'system',
+              staffName: senderName,
+              text: msg.message_text,
+              time: new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+              attachment_url: msg.attachment_url,
+              attachment_type: msg.attachment_type,
+              isSystem: isSystemMessage,
+              isEmergency: msg.message_text?.includes('طوارئ') || msg.message_text?.includes('🆘'),
+              sender_id: msg.sender_id,
+              sender_role: msg.sender_role,
+            };
+          });
+          setHumanMsgs(mapped);
+        }
+      } catch (err) {
+        console.error('Error fetching initial messages:', err);
+      }
+    };
+
+    fetchMessages();
+  }, [selectedCase?.id, user.id, teamMembers, reconnectTrigger]);
 
   /* REAL-TIME MESSAGES SUBSCRIPTION - Human chat (separate from bot) */
   useEffect(() => {
@@ -346,28 +725,37 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
         // Detect system messages (emergency alerts)
         const isSystemMessage = msg.message_text?.startsWith('【') || msg.sender_role === 'system';
 
-        if (msg.sender_id !== user.id || isSystemMessage) {
-          setHumanMsgs((prev) => {
-            if (prev.some((m) => m.id === msg.id)) return prev;
-            return [...prev, {
-              id: msg.id,
-              from: isSystemMessage ? 'system' : msg.sender_role === 'lawyer' ? 'lawyer' : msg.sender_role === 'staff' || msg.sender_role === 'secretary' || msg.sender_role === 'accountant' ? 'staff' : 'lawyer',
-              text: msg.message_text,
-              time: new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
-              attachment_url: msg.attachment_url,
-              attachment_type: msg.attachment_type,
-              isSystem: isSystemMessage,
-              isEmergency: msg.message_text?.includes('طوارئ') || msg.message_text?.includes('🆘'),
-              sender_id: msg.sender_id,
-              sender_role: msg.sender_role,
-            }];
-          });
-        }
+        const matchedMember = teamMembersRef.current.find(m => m.id === msg.sender_id);
+        const senderName = matchedMember ? matchedMember.full_name : '';
+        setHumanMsgs((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, {
+            id: msg.id,
+            from: (msg.sender_id === user.id
+              ? 'user'
+              : isSystemMessage 
+                ? 'system' 
+                : ['owner', 'partner', 'lawyer'].includes(msg.sender_role) 
+                  ? 'lawyer' 
+                  : ['assistant', 'secretary', 'accountant', 'staff'].includes(msg.sender_role) 
+                    ? 'staff' 
+                    : 'lawyer') as 'lawyer' | 'staff' | 'user' | 'bot' | 'system',
+            staffName: senderName,
+            text: msg.message_text,
+            time: new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+            attachment_url: msg.attachment_url,
+            attachment_type: msg.attachment_type,
+            isSystem: isSystemMessage,
+            isEmergency: msg.message_text?.includes('طوارئ') || msg.message_text?.includes('🆘'),
+            sender_id: msg.sender_id,
+            sender_role: msg.sender_role,
+          }];
+        });
       })
       .subscribe();
 
     return () => { ch.unsubscribe(); };
-  }, [selectedCase?.id, user.id]);
+  }, [selectedCase?.id, user.id, reconnectTrigger]);
 
   /* REAL-TIME APPOINTMENT STATUS SUBSCRIPTION */
   useEffect(() => {
@@ -388,7 +776,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       .subscribe();
 
     return () => { ch.unsubscribe(); };
-  }, [user.id, push]);
+  }, [user.id, push, reconnectTrigger]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [botMsgs, humanMsgs]);
 
@@ -410,7 +798,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
   const botReply = async (text: string): Promise<string> => {
     const t = text.trim();
-    const lang = detectLang(t);
+    const lang = locale || detectLang(t);
     const num = t.match(/\b([A-Za-z]{0,5}[\-]?\d{3,})\b/i)?.[1] || t.match(/\b(\d{4,})\b/)?.[1];
 
     if (num) {
@@ -422,45 +810,52 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
         setAggregatedCases((prev) => prev.some(ac => ac.id === c.id) ? prev : [...prev, c]);
         if (lang === 'en') return `✅ Found your case!\n\n📋 Number: ${sanitize(c.case_number)}\n👤 Name: ${sanitize(c.client_name || '')}\n⚖️ Type: ${c.case_type || '—'}\n📌 Judgment: ${c.judgment}\n💰 Fees: ${formatCurrency(Number(c.total_fees), lawyerCurrency)}\n📊 Expenses: ${formatCurrency(Number(c.admin_fees), lawyerCurrency)}`;
         if (lang === 'fr') return `✅ Dossier trouvé !\n\n📋 Numéro: ${sanitize(c.case_number)}\n👤 Nom: ${sanitize(c.client_name || '')}\n⚖️ Type: ${c.case_type || '—'}\n📌 Jugement: ${c.judgment}\n💰 Honoraires: ${formatCurrency(Number(c.total_fees), lawyerCurrency)}\n📊 Frais: ${formatCurrency(Number(c.admin_fees), lawyerCurrency)}`;
+        if (lang === 'tr') return `✅ Davanız bulundu!\n\n📋 Numara: ${sanitize(c.case_number)}\n👤 İsim: ${sanitize(c.client_name || '')}\n⚖️ Tür: ${c.case_type || '—'}\n📌 Karar: ${c.judgment}\n💰 Ücretler: ${formatCurrency(Number(c.total_fees), lawyerCurrency)}\n📊 Masraflar: ${formatCurrency(Number(c.admin_fees), lawyerCurrency)}`;
         return `✅ وجدت قضيتك!\n\n📋 الرقم: ${sanitize(c.case_number)}\n👤 الاسم: ${sanitize(c.client_name || '')}\n⚖️ النوع: ${c.case_type || '—'}\n📌 الحكم: ${c.judgment}\n💰 الأتعاب: ${formatCurrency(Number(c.total_fees), lawyerCurrency)}\n📊 المصاريف: ${formatCurrency(Number(c.admin_fees), lawyerCurrency)}`;
       }
       if (lang === 'en') return `❌ No case found with number "${safeNum}"\nPlease double-check and try again.`;
       if (lang === 'fr') return `❌ Aucun dossier trouvé avec le numéro "${safeNum}"\nVeuillez vérifier et réessayer.`;
+      if (lang === 'tr') return `❌ "${safeNum}" numaralı dava bulunamadı.\nLütfen kontrol edip tekrar deneyin.`;
       return `❌ مش لاقي قضية بالرقم "${safeNum}"\nتأكد من الرقم وحاول تاني.`;
     }
 
     // Greetings
-    if (/مرحب|أهلاً|هلو|السلام|صباح|مساء/.test(t) || /\b(hello|hi|hey|good morning|good evening)\b/i.test(t) || /\b(bonjour|salut)\b/i.test(t)) {
+    if (/مرحب|أهلاً|هلو|السلام|صباح|مساء/.test(t) || /\b(hello|hi|hey|good morning|good evening)\b/i.test(t) || /\b(bonjour|salut)\b/i.test(t) || /\b(merhaba|selam)\b/i.test(t)) {
       if (lang === 'en') return `Hello! 😊\nSend me your case number and I'll give you all the details.`;
       if (lang === 'fr') return `Bonjour ! 😊\nEnvoyez-moi le numéro de votre dossier et je vous donnerai tous les détails.`;
+      if (lang === 'tr') return `Merhaba! 😊\nDava numaranızı gönderin, size tüm detayları vereyim.`;
       return `وعليكم السلام! 😊\nأرسل رقم قضيتك وهديك كل التفاصيل.`;
     }
 
     // Schedule / appointments
-    if (/مواعيد|وقت|جلسة/.test(t) || /\b(schedule|appointment|office hours|timing)\b/i.test(t) || /\b(rendez|horaires|disponibilité)\b/i.test(t)) {
+    if (/مواعيد|وقت|جلسة/.test(t) || /\b(schedule|appointment|office hours|timing)\b/i.test(t) || /\b(rendez|horaires|disponibilité)\b/i.test(t) || /\b(saat|randevu|calisma)\b/i.test(t)) {
       const phone = lawyerInfo?.phone_number || '';
       if (lang === 'en') return `Office hours: Saturday – Thursday, 9 AM – 5 PM\nContact: ${phone}`;
       if (lang === 'fr') return `Horaires du cabinet : Samedi – Jeudi, 9h – 17h\nContact : ${phone}`;
+      if (lang === 'tr') return `Çalışma saatleri: Cumartesi – Perşembe, 09:00 – 17:00\nİletişim: ${phone}`;
       return `مواعيد المكتب: السبت – الخميس ٩ص – ٥م\nللتواصل: ${phone}`;
     }
 
     // Thanks
-    if (/شكر|جزاك|ربنا/.test(t) || /\b(thanks|thank you|appreciate)\b/i.test(t) || /\b(merci|je vous remercie)\b/i.test(t)) {
+    if (/شكر|جزاك|ربنا/.test(t) || /\b(thanks|thank you|appreciate)\b/i.test(t) || /\b(merci|je vous remercie)\b/i.test(t) || /\b(tesekkur|sagol)\b/i.test(t)) {
       if (lang === 'en') return "You're welcome! Best of luck 🙏";
       if (lang === 'fr') return "Je vous en prie ! Bonne chance 🙏";
+      if (lang === 'tr') return "Rica ederim! Başarılar dilerim 🙏";
       return 'وإياك! ربنا يوفقك 🙏';
     }
 
     // Emergency
-    if (/طوارئ|عاجل|مساعدة/.test(t) || /\b(emergency|urgent|help|sos)\b/i.test(t) || /\b(urgence|urgent|aide|secours)\b/i.test(t)) {
+    if (/طوارئ|عاجل|مساعدة/.test(t) || /\b(emergency|urgent|help|sos)\b/i.test(t) || /\b(urgence|urgent|aide|secours)\b/i.test(t) || /\b(acil|yardim)\b/i.test(t)) {
       if (lang === 'en') return 'Press the red emergency button and your request will reach the lawyer immediately 🆘';
       if (lang === 'fr') return 'Appuyez sur le bouton d\'urgence rouge et votre demande parviendra à l\'avocat immédiatement 🆘';
+      if (lang === 'tr') return 'Kırmızı acil durum butonuna basın, talebiniz avukata anında ulaşacaktır 🆘';
       return 'اضغط على زر الطوارئ الأحمر وهيوصل طلبك للمحامي فوراً 🆘';
     }
 
     // Fallback
     if (lang === 'en') return "I didn't quite understand that 😅\nTry:\n• Send your case number\n• Type \"schedule\" for office hours\n• Type \"emergency\" for help";
     if (lang === 'fr') return "Je n'ai pas bien compris 😅\nEssayez :\n• Envoyez le numéro de votre dossier\n• Tapez \"horaires\" pour les heures du cabinet\n• Tapez \"urgence\" pour de l'aide";
+    if (lang === 'tr') return "Tam olarak anlayamadım 😅\nŞunları deneyin:\n• Dava numaranızı gönderin\n• Çalışma saatleri için \"schedule\" yazın\n• Yardım almak için \"emergency\" yazın";
     return 'مش فاهم سؤالك 😅\nجرب:\n• إرسال رقم القضية\n• اكتب "مواعيد" للمواعيد\n• اكتب "طوارئ" للمساعدة';
   };
 
@@ -485,13 +880,6 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
     let attachmentUrl: string | undefined;
     let attachmentType: 'image' | 'video' | undefined;
-    let localPreviewUrl: string | undefined;
-
-    // Create immediate local preview for any attachment
-    if (attachment) {
-      localPreviewUrl = URL.createObjectURL(attachment);
-      attachmentType = attachment.type.startsWith('image/') ? 'image' : attachment.type.startsWith('video/') ? 'video' : undefined;
-    }
 
     // Handle file upload for human chat (not bot)
     if (attachment && selectedCase && activeChatTarget !== 'bot') {
@@ -500,10 +888,15 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       if (!uploadErr) {
         const { data } = supabase.storage.from('chat-attachments').getPublicUrl(path);
         attachmentUrl = data?.publicUrl;
+        attachmentType = attachment.type.startsWith('image/') ? 'image' : attachment.type.startsWith('video/') ? 'video' : undefined;
+      } else {
+        console.error('Error uploading attachment:', uploadErr);
+        push('خطأ في رفع الملف', 'danger');
+        return;
       }
     }
 
-    const userMsg: ChatMsg = { id: 'u' + Date.now(), from: 'user', text: txt, time: userMsgTime, attachment_url: localPreviewUrl || attachmentUrl, attachment_type: attachmentType };
+    const userMsg: ChatMsg = { id: 'u' + Date.now(), from: 'user', text: txt, time: userMsgTime, attachment_url: attachmentUrl, attachment_type: attachmentType };
 
     /* LOCAL BOT MODE: Process entirely locally, no DB insert - TEXT ONLY */
     if (activeChatTarget === 'bot') {
@@ -520,10 +913,9 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       return;
     }
 
-    setHumanMsgs((p) => [...p, { ...userMsg, attachment_url: attachmentUrl || localPreviewUrl }]);
     setInput('');
 
-    await supabase.from('messages').insert([{
+    const { error: insertErr } = await supabase.from('messages').insert([{
       case_id: selectedCase.id,
       sender_id: user.id,
       sender_role: 'client',
@@ -533,8 +925,10 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       room_type: 'client_chat',
     }]);
 
-    // Revoke local preview URL after storage URL is set
-    if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    if (insertErr) {
+      console.error('Error inserting message to database:', insertErr);
+      push('❌ خطأ في إرسال الرسالة', 'danger');
+    }
   };
 
 
@@ -591,34 +985,36 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   /* SIMPLIFIED BOOKING ENGINE - Submit with time range */
   const submitAppointment = async () => {
     if (!selectedDay) {
-      push('اختر يوم الموعد', 'warning');
+      push(locale === 'ar' ? 'يرجى اختيار اليوم' : (locale === 'tr' ? 'Lütfen gün seçin' : 'Please select a day'), 'warning');
       return;
     }
     if (!selectedSlot) {
-      push('اختر ساعة الموعد', 'warning');
+      push(locale === 'ar' ? 'يرجى اختيار الوقت' : (locale === 'tr' ? 'Lütfen saat seçin' : 'Please select a time slot'), 'warning');
       return;
     }
 
-    const dayLabel = DAYS_OF_WEEK.find(d => d.id === selectedDay)?.label || selectedDay;
     const lawyerId = lawyerInfo?.id || urlLawyerId || profile?.linked_lawyer_id;
     if (!lawyerId) {
-      push('لم يتم تحديد المحامي', 'danger');
+      push(locale === 'ar' ? 'لم يتم تحديد المحامي' : (locale === 'tr' ? 'Avukat belirlenmedi' : 'Lawyer not specified'), 'danger');
       return;
     }
     const clientName = profile?.full_name || selectedCase?.client_name || 'موكل';
     const caseNumber = selectedCase?.case_number || 'بدون قضية';
+    const isoDate = getNextWeekdayDate(selectedDay);
+    const dayLabel = getDayLabel(selectedDay, locale);
 
     const { error } = await supabase.from('appointment_requests').insert([{
       case_id: selectedCase?.id || null,
       client_id: user.id,
       lawyer_id: lawyerId,
-      appointment_date: selectedDay,
+      appointment_date: isoDate,
       appointment_time: selectedSlot,
       reason: `طلب موعد من ${clientName} | قضية: ${caseNumber} | ${dayLabel} (${selectedSlot})`,
     }]);
 
     if (error) {
-      push('خطأ في إرسال الطلب', 'danger');
+      console.error('Error submitting appointment:', error);
+      push(t('appointmentError') + ': ' + error.message, 'danger');
       return;
     }
 
@@ -630,19 +1026,41 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       }]);
     }
 
-    push('✓ تم إرسال طلب الموعد', 'success');
+    push(t('appointmentSuccess'), 'success');
     setApptSubmitted(true);
   };
 
-  const processPayment = () => {
-    if (!selectedChannel) { push('اختر طريقة الدفع', 'warning'); return; }
+  const processPayment = async () => {
+    if (!selectedChannel) {
+      push(locale === 'ar' ? 'اختر طريقة الدفع' : (locale === 'tr' ? 'Lütfen ödeme yöntemi seçin' : 'Please select payment method'), 'warning');
+      return;
+    }
     setPaymentProcessing(true);
-    setTimeout(() => {
+
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: {
+          case_id: selectedCase?.id,
+          client_id: user.id,
+          amount: amountRemaining,
+          currency: lawyerCurrency,
+          channel: selectedChannel,
+          redirect_origin: window.location.origin,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error(locale === 'ar' ? 'لم يتم استرجاع رابط الدفع' : 'No checkout URL returned');
+
+      push(locale === 'ar' ? 'جاري توجيهك لبوابة دفع Paymob...' : 'Redirecting to Paymob...', 'success');
+      
+      setTimeout(() => {
+        window.location.href = data.url;
+      }, 1000);
+    } catch (err: any) {
+      push(locale === 'ar' ? 'خطأ في الدفع: ' + err.message : 'Payment error: ' + err.message, 'danger');
       setPaymentProcessing(false);
-      setPaymentDone(true);
-      push('✓ تمت عملية الدفع بنجاح عبر Paymob', 'success');
-      setTimeout(() => { setPaymentDone(false); setShowPayment(false); setSelectedChannel(''); }, 2000);
-    }, 2500);
+    }
   };
 
   const LAWYER_NAME = lawyerInfo?.full_name || 'المحامي';
@@ -669,11 +1087,28 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     setCurrentScreen('live_chat');
   };
 
-  const selectLawyerDirect = () => {
+  const selectStaffChat = async (member: TeamMember) => {
+    setActiveChatTarget('staff');
+    setActiveChatLabel(member.full_name);
+    setShowChatDropdown(false);
+    const c = await ensureGeneralChatCase();
+    if (c) {
+      setCurrentScreen('live_chat');
+    } else {
+      push('⚠️ خطأ في تهيئة المحادثة مع موظف المكتب', 'danger');
+    }
+  };
+
+  const selectLawyerDirect = async () => {
     setActiveChatTarget('lawyer');
     setActiveChatLabel(LAWYER_NAME);
     setShowChatDropdown(false);
-    setCurrentScreen('live_chat');
+    const c = await ensureGeneralChatCase();
+    if (c) {
+      setCurrentScreen('live_chat');
+    } else {
+      push('⚠️ خطأ في تهيئة المحادثة مع المحامي', 'danger');
+    }
   };
 
   const exitLiveChat = () => {
@@ -695,7 +1130,8 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
           boxShadow: '0 2px 20px rgba(15,37,87,.3)',
         }}>
           <button onClick={exitLiveChat} style={{ background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', padding: '6px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontFamily: "'Cairo',sans-serif", fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ArrowRight size={14} /> رجوع للرئيسية
+            {isRTL ? <ArrowRight size={14} /> : <ArrowLeft size={14} />}
+            {locale === 'ar' ? 'رجوع للرئيسية' : (locale === 'tr' ? 'Ana Sayfa' : (locale === 'fr' ? 'Retour' : 'Back'))}
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -703,10 +1139,10 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
               {activeChatTarget === 'bot' ? <Bot size={16} color="#fff" /> : activeChatTarget === 'lawyer' ? <span style={{ fontSize: 16 }}>👨‍⚖️</span> : <Users size={16} color="#fff" />}
             </div>
             <div>
-              <p style={{ fontWeight: 800, fontSize: 14 }}>{activeChatTarget === 'bot' ? `مساعد الأستاذ ${LAWYER_NAME}` : activeChatLabel}</p>
+              <p style={{ fontWeight: 800, fontSize: 14 }}>{activeChatTarget === 'bot' ? (locale === 'ar' ? `مساعد الأستاذ ${LAWYER_NAME}` : (locale === 'tr' ? `Avukat ${LAWYER_NAME} Asistanı` : (locale === 'fr' ? `L'assistant de Me ${LAWYER_NAME}` : `Mr. ${LAWYER_NAME}'s assistant`))) : activeChatLabel}</p>
               <p style={{ fontSize: 10, opacity: 0.6, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span className="pulse" style={{ width: 6, height: 6, background: '#4ADE80', borderRadius: '50%', display: 'inline-block' }} />
-                {activeChatTarget === 'bot' ? 'محلي · 24/7' : 'مباشر · real-time'}
+                {activeChatTarget === 'bot' ? t('botSub') : t('liveChat')}
               </p>
             </div>
           </div>
@@ -785,7 +1221,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
               <span style={{ fontSize: 20 }}>📷</span>
             </label>
           )}
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={activeChatTarget === 'bot' ? 'اكتب سؤالك للمساعد...' : 'اكتب رسالتك...'} dir="rtl" maxLength={2000} style={{ flex: 1, padding: '12px 16px', border: '1.5px solid var(--border)', borderRadius: 12, fontSize: 14, fontFamily: "'Cairo',sans-serif", outline: 'none', background: '#FAFBFE' }} onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.border = '1.5px solid var(--navy-mid)'; }} onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.border = '1.5px solid var(--border)'; }} />
+          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={activeChatTarget === 'bot' ? t('writeBot') : t('writeMsg')} dir={isRTL ? 'rtl' : 'ltr'} maxLength={2000} style={{ flex: 1, padding: '12px 16px', border: '1.5px solid var(--border)', borderRadius: 12, fontSize: 14, fontFamily: "'Cairo',sans-serif", outline: 'none', background: '#FAFBFE' }} onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.border = '1.5px solid var(--navy-mid)'; }} onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.border = '1.5px solid var(--border)'; }} />
           <Button onClick={() => send()} style={{ padding: '12px 20px', minWidth: 56 }}><Send size={18} /></Button>
         </div>
       </div>
@@ -802,11 +1238,33 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, background: 'rgba(255,255,255,.15)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Scale size={16} color="var(--gold)" /></div>
           <div>
-            <p style={{ fontWeight: 900, fontSize: 15, fontFamily: "'Tajawal', sans-serif" }}>مُحكَم</p>
-            <p style={{ fontSize: 10, opacity: 0.6 }}>بوابة الموكل</p>
+            <p style={{ fontWeight: 900, fontSize: 15, fontFamily: "'Tajawal', sans-serif" }}>{t('title')}</p>
+            <p style={{ fontSize: 10, opacity: 0.6 }}>{t('subtitle')}</p>
           </div>
         </div>
-        <button onClick={onLogout} style={{ background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', padding: '6px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 12, fontFamily: "'Cairo',sans-serif", fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}><LogOut size={12} /> خروج</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as any)}
+            style={{
+              background: 'rgba(255,255,255,.12)',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,.2)',
+              borderRadius: 10,
+              padding: '6px 10px',
+              fontSize: 12,
+              fontFamily: "'Cairo',sans-serif",
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <option value="ar" style={{ color: '#000' }}>🇸🇦 ع</option>
+            <option value="en" style={{ color: '#000' }}>🇬🇧 En</option>
+            <option value="fr" style={{ color: '#000' }}>🇫🇷 Fr</option>
+            <option value="tr" style={{ color: '#000' }}>🇹🇷 Tr</option>
+          </select>
+          <button onClick={onLogout} style={{ background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', padding: '6px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 12, fontFamily: "'Cairo',sans-serif", fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}><LogOut size={12} /> {t('logout')}</button>
+        </div>
       </header>
 
       <main style={{ flex: 1, padding: 14, maxWidth: 560, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 24 }}>
@@ -839,12 +1297,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
                     {lawyerTier === 'team' && teamMembers.length > 0 && teamMembers.map((member) => {
                       const roleInfo = FIRM_ROLES[member.role] || FIRM_ROLES.lawyer;
                       return (
-                        <button key={member.id} onClick={() => {
-                          setActiveChatTarget('staff');
-                          setActiveChatLabel(member.full_name);
-                          setShowChatDropdown(false);
-                          setCurrentScreen('live_chat');
-                        }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', background: 'transparent', cursor: 'pointer', width: '100%', textAlign: 'right', transition: 'background .15s', fontFamily: "'Cairo',sans-serif" }}>
+                        <button key={member.id} onClick={() => selectStaffChat(member)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', background: 'transparent', cursor: 'pointer', width: '100%', textAlign: 'right', transition: 'background .15s', fontFamily: "'Cairo',sans-serif" }}>
                           <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                             {member.avatar_url ? <img src={member.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 14 }}>{roleInfo.icon}</span>}
                           </div>
@@ -882,11 +1335,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
                 return (
                   <button
                     key={m.id}
-                    onClick={() => {
-                      setActiveChatTarget('staff');
-                      setActiveChatLabel(m.full_name);
-                      setCurrentScreen('live_chat');
-                    }}
+                    onClick={() => selectStaffChat(m)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '8px 14px', borderRadius: 10,
