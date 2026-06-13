@@ -101,9 +101,38 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   const { canViewChat, canViewCaseDetails, canManageBilling, activeRole } = useRole();
   const tier = profile.tier || 'free';
   const {
-    cases, loadCases, addCase, updateCase, deleteCase,
+    cases, loadCases, addCase, updateCase, deleteCase: contextDeleteCase,
     selectedCase, setSelectedCase, loadEvents, loadAppointments, appointments,
   } = useCase();
+
+  // State للأرشيف
+  const [showArchived, setShowArchived] = useState(false);
+
+  // دالة الأرشفة
+  const archiveCase = async (caseId: string) => {
+    await supabase
+      .from('cases')
+      .update({ judgment: 'مؤرشف' })
+      .eq('id', caseId);
+    push('تم أرشفة القضية ✅', 'success');
+    loadCases(effectiveLawyerId);
+  };
+
+  // دالة الحذف
+  const deleteCase = async (caseId: string) => {
+    const confirm = window.confirm(
+      'هل أنت متأكد من حذف القضية نهائياً؟ لا يمكن التراجع.'
+    );
+    if (!confirm) return;
+    
+    await supabase
+      .from('cases')
+      .delete()
+      .eq('id', caseId);
+    
+    push('تم حذف القضية نهائياً 🗑️', 'success');
+    loadCases(effectiveLawyerId);
+  };
 
   // Staff accounts use master_lawyer_id for case routing; master lawyers use their own id
   const effectiveLawyerId = profile.master_lawyer_id || user.id;
@@ -196,16 +225,18 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
 
   // Real-time subscription for cases
   useEffect(() => {
-    const ch = supabase
+    const channel = supabase
       .channel('cases:' + effectiveLawyerId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cases', filter: `lawyer_id=eq.${effectiveLawyerId}` }, () => loadCases(effectiveLawyerId))
       .subscribe();
-    return () => { ch.unsubscribe(); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user.id, loadCases]);
 
   // Real-time subscription for emergencies - HIGH PRIORITY ALERT
   useEffect(() => {
-    const ch = supabase
+    const channel = supabase
       .channel('emergencies_alerts:' + effectiveLawyerId)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'case_emergencies' }, async (payload) => {
         const emg = payload.new;
@@ -226,12 +257,14 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
         }
       })
       .subscribe();
-    return () => { ch.unsubscribe(); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [effectiveLawyerId, push]);
 
   // Real-time subscription for appointment requests with sound alert
   useEffect(() => {
-    const ch = supabase
+    const channel = supabase
       .channel('appointments_alerts:' + effectiveLawyerId)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'appointment_requests', filter: `lawyer_id=eq.${effectiveLawyerId}` }, (payload) => {
         const appt = payload.new;
@@ -252,7 +285,9 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
         loadAppointments(effectiveLawyerId);
       })
       .subscribe();
-    return () => { ch.unsubscribe(); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [effectiveLawyerId, push, loadAppointments]);
 
   // Handle appointment approval
@@ -279,8 +314,8 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   }, [appointments]);
 
   const handleAddEmptyCase = async () => {
-    if (profile.tier === 'free' && cases.length >= 5) {
-      push('وصلت للحد الأقصى — اشترك في Pro', 'warning');
+    if (isCaseCreationBlocked(profile.tier || 'free', cases.length)) {
+      push(profile.tier === 'free' ? 'وصلت للحد الأقصى — اشترك في Pro' : 'وصلت للحد الأقصى للباقة الحالية', 'warning');
       return;
     }
     const payload = {
@@ -315,7 +350,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   };
 
   const handleDeleteCase = async (id: string) => {
-    const ok = await deleteCase(id);
+    const ok = await contextDeleteCase(id);
     if (ok) push('تم حذف القضية', 'warning');
     else push('خطأ في الحذف', 'danger');
   };
@@ -451,6 +486,12 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
     ...(canManageBilling ? [{ id: 'billing', icon: Calculator, label: 'الفواتير' }] : []),
     { id: 'settings', icon: Settings, label: 'الإعدادات' },
   ];
+
+  const visibleCases = cases.filter(c => 
+    showArchived 
+      ? c.judgment === 'مؤرشف'
+      : c.judgment !== 'مؤرشف'
+  );
 
   const stats = [
     { label: 'إجمالي القضايا', val: cases.length, color: 'var(--navy)' },
@@ -637,8 +678,31 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                 </Card>
               ))}
             </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 4 }}>
+              <button 
+                onClick={() => setShowArchived(!showArchived)}
+                style={{
+                  background: 'var(--navy)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontFamily: "'Cairo', sans-serif",
+                  fontSize: 13,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxShadow: '0 2px 8px rgba(15,37,87,0.15)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {showArchived ? '📋 القضايا النشطة' : '🗃️ الأرشيف'}
+              </button>
+            </div>
             <CasesTable
-              cases={cases}
+              cases={visibleCases}
               columns={cols}
               onUpdate={handleUpdateCase}
               onAdd={handleAddEmptyCase}
@@ -648,6 +712,8 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
               onRowClick={handleRowClick}
               selectedId={selectedCase?.id}
               onGenerateInvoiceLink={handleGenerateInvoiceLink}
+              onArchive={archiveCase}
+              onDeleteCase={deleteCase}
             />
             <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>💡 انقر مرتين على أي خلية لتعديلها · اضغط على صف لعرض التفاصيل</p>
           </div>

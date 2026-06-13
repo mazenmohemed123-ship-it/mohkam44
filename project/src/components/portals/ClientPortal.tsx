@@ -700,7 +700,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   useEffect(() => {
     if (!selectedCase) return;
 
-    const ch = supabase
+    const channel = supabase
       .channel('messages:' + selectedCase.id)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `case_id=eq.${selectedCase.id}` }, (payload) => {
         const msg = payload.new as any;
@@ -741,12 +741,14 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       })
       .subscribe();
 
-    return () => { ch.unsubscribe(); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedCase?.id, user.id, reconnectTrigger]);
 
   /* REAL-TIME APPOINTMENT STATUS SUBSCRIPTION */
   useEffect(() => {
-    const ch = supabase
+    const channel = supabase
       .channel('appointment_status:' + user.id)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'appointment_requests', filter: `client_id=eq.${user.id}` }, (payload) => {
         const appt = payload.new as AppointmentRequest;
@@ -762,7 +764,9 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       })
       .subscribe();
 
-    return () => { ch.unsubscribe(); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user.id, push, reconnectTrigger]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [botMsgs, humanMsgs]);
