@@ -1657,7 +1657,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
         {/* Technical Support */}
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
           <a
-            href="mailto:mazenmohemed123@gmail.com"
+            href="mailto:mazenmohemed123@gmail.com?subject=طلب دعم فني - محكَم&body=اسمي: [اكتب اسمك]%0Aالمشكلة: [اكتب مشكلتك]"
             style={{
               display: 'flex',
               alignItems: 'center',

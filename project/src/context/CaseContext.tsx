@@ -102,6 +102,7 @@ export function CaseProvider({ children }: { children: ReactNode }) {
       .from('cases')
       .select('*')
       .eq('lawyer_id', lawyerId)
+      .neq('case_number', 'GENERAL-CHAT')
       .order('created_at', { ascending: false });
     if (!error && data) setCases(data);
   }, []);

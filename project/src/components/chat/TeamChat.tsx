@@ -47,7 +47,6 @@ export function TeamChat({ masterLawyerId, userId, userRole, push, userEmail }: 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [caseId, setCaseId] = useState<string | null>(null);
 
   // Private chat states
   const [activeTab, setActiveTab] = useState<'group' | 'private'>('group');
@@ -56,55 +55,6 @@ export function TeamChat({ masterLawyerId, userId, userRole, push, userEmail }: 
 
   const endRef = useRef<HTMLDivElement>(null);
   const chRef = useRef<any>(null);
-
-  const resolveTeamCase = async () => {
-    try {
-      const { data: casesData } = await supabase
-        .from('cases')
-        .select('id')
-        .eq('lawyer_id', masterLawyerId)
-        .eq('case_number', 'TEAM-CHAT')
-        .limit(1);
-
-      if (casesData && casesData.length > 0) {
-        setCaseId(casesData[0].id);
-        return casesData[0].id;
-      }
-
-      const { data: newCase } = await supabase
-        .from('cases')
-        .insert([{
-          case_number: 'TEAM-CHAT',
-          client_name: 'فريق العمل',
-          case_type: 'شات داخلي',
-          judgment: 'نشط',
-          total_fees: 0,
-          admin_fees: 0,
-          lawyer_id: masterLawyerId,
-        }])
-        .select('id')
-        .single();
-
-      if (newCase) {
-        setCaseId(newCase.id);
-        return newCase.id;
-      } else {
-        const { data: retryData } = await supabase
-          .from('cases')
-          .select('id')
-          .eq('lawyer_id', masterLawyerId)
-          .eq('case_number', 'TEAM-CHAT')
-          .limit(1);
-        if (retryData && retryData.length > 0) {
-          setCaseId(retryData[0].id);
-          return retryData[0].id;
-        }
-      }
-    } catch (err) {
-      console.error('Error resolving team case:', err);
-    }
-    return null;
-  };
 
   const resolvePeerCase = async (targetId: string) => {
     const caseNumber = 'PEER-' + [userId, targetId].sort().join('-');
@@ -171,33 +121,41 @@ export function TeamChat({ masterLawyerId, userId, userRole, push, userEmail }: 
 
   useEffect(() => {
     loadMembers();
-    resolveTeamCase();
   }, [masterLawyerId]);
 
   useEffect(() => {
-    const currentCaseId = activeTab === 'group' ? caseId : peerCaseId;
-    if (!currentCaseId) return;
+    if (activeTab === 'private' && !peerCaseId) return;
 
     setLoading(true);
     const fetchMsgs = async () => {
       const roomType = activeTab === 'group' ? 'internal_team_chat' : 'peer_chat';
-      const { data, error } = await supabase
+      let query = supabase
         .from('messages')
         .select('*')
-        .eq('room_type', roomType)
-        .eq('case_id', currentCaseId)
-        .order('created_at', { ascending: true });
+        .eq('room_type', roomType);
+
+      if (roomType === 'internal_team_chat') {
+        query = query.eq('team_id', masterLawyerId);
+      } else {
+        query = query.eq('case_id', peerCaseId || '');
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: true });
       if (!error && data) setMsgs(data);
       setLoading(false);
     };
     fetchMsgs();
 
     chRef.current?.unsubscribe();
+
+    const channelName = activeTab === 'group' ? `team_room_group:${masterLawyerId}` : `team_room_peer:${peerCaseId}`;
+    const filterStr = activeTab === 'group' ? `team_id=eq.${masterLawyerId}` : `case_id=eq.${peerCaseId}`;
+
     chRef.current = supabase
-      .channel('team_room:' + currentCaseId)
+      .channel(channelName)
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'messages',
-        filter: `case_id=eq.${currentCaseId}`,
+        filter: filterStr,
       }, (payload) => {
         const msg = payload.new as TeamMessage;
         const expectedType = activeTab === 'group' ? 'internal_team_chat' : 'peer_chat';
@@ -211,14 +169,13 @@ export function TeamChat({ masterLawyerId, userId, userRole, push, userEmail }: 
       .subscribe();
 
     return () => { chRef.current?.unsubscribe(); };
-  }, [activeTab, caseId, peerCaseId]);
+  }, [activeTab, masterLawyerId, peerCaseId]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
   const sendMessage = useCallback(async (attachment?: File) => {
     if (!input.trim() && !attachment) return;
-    const currentCaseId = activeTab === 'group' ? caseId : peerCaseId;
-    if (!currentCaseId) return;
+    if (activeTab === 'private' && !peerCaseId) return;
 
     const { allowed, cooldownSeconds } = checkFloodLimit(userEmail);
     if (!allowed) {
@@ -230,8 +187,9 @@ export function TeamChat({ masterLawyerId, userId, userRole, push, userEmail }: 
     let attachmentUrl: string | undefined;
     let attachmentType: string | undefined;
 
-    if (attachment) {
-      const path = `team-chat/${currentCaseId}/${Date.now()}_${attachment.name}`;
+    const folderId = activeTab === 'group' ? masterLawyerId : peerCaseId;
+    if (attachment && folderId) {
+      const path = `team-chat/${folderId}/${Date.now()}_${attachment.name}`;
       const { error: uploadErr } = await supabase.storage.from('chat-attachments').upload(path, attachment);
       if (!uploadErr) {
         const { data } = supabase.storage.from('chat-attachments').getPublicUrl(path);
@@ -242,13 +200,21 @@ export function TeamChat({ masterLawyerId, userId, userRole, push, userEmail }: 
 
     const safeText = sanitize(input);
     const roomType = activeTab === 'group' ? 'internal_team_chat' : 'peer_chat';
+    const case_id = activeTab === 'group' ? null : peerCaseId;
+    const team_id = activeTab === 'group' ? masterLawyerId : null;
+    const sender_id = userId;
+
+    if (roomType === 'internal_team_chat') {
+      console.log('internal msg:', { room_type: roomType, team_id, case_id, sender_id });
+    }
 
     const { error } = await supabase.from('messages').insert([{
-      sender_id: userId,
+      sender_id: sender_id,
       sender_role: userRole,
       message_text: safeText,
       room_type: roomType,
-      case_id: currentCaseId,
+      case_id: case_id,
+      team_id: team_id,
       attachment_url: attachmentUrl,
       attachment_type: attachmentType,
     }]);
@@ -275,7 +241,7 @@ export function TeamChat({ masterLawyerId, userId, userRole, push, userEmail }: 
       push('خطأ في الإرسال', 'danger');
     }
     setSending(false);
-  }, [input, activeTab, caseId, peerCaseId, userId, userRole, push, userEmail, members, peerTarget]);
+  }, [input, activeTab, masterLawyerId, peerCaseId, userId, userRole, push, userEmail, members, peerTarget]);
 
   const getMemberName = (senderId: string) => {
     const m = members.find((m) => m.id === senderId);

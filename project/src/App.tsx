@@ -19,10 +19,7 @@ type UserRole = 'lawyer' | 'client';
 const SESSION_KEY = 'mohkam_client_session';
 const ADMIN_ROUTE = '/admin-control-center';
 
-function parseFirmPortalPath(): string | null {
-  const match = window.location.pathname.match(/^\/portal\/lawyer\/([a-f0-9-]+)/i);
-  return match ? match[1] : null;
-}
+
 
 interface ClientSession {
   userId: string;
@@ -40,10 +37,12 @@ function AppContent() {
   const [screen, setScreen] = useState<AppScreen>('role_gate');
   const [, setSelectedRole] = useState<UserRole>('lawyer');
 
-  const params = new URLSearchParams(window.location.search);
-  const urlLawyerId = params.get('join_lawyer');
-  const inviteToken = params.get('client_invite_token');
-  const firmPortalLawyerId = parseFirmPortalPath();
+  const pathname = window.location.pathname;
+  const lawyerPortalMatch = pathname.match(/^\/portal\/lawyer\/([a-f0-9-]{36})/);
+  const urlLawyerId = lawyerPortalMatch 
+    ? lawyerPortalMatch[1]
+    : new URLSearchParams(window.location.search).get('join_lawyer');
+  const inviteToken = new URLSearchParams(window.location.search).get('client_invite_token');
 
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
@@ -128,7 +127,7 @@ function AppContent() {
     }
 
     // If we have invite URL params or firm portal path, go straight to client auth
-    if ((urlLawyerId && inviteToken) || firmPortalLawyerId) {
+    if ((urlLawyerId && inviteToken) || lawyerPortalMatch) {
       setScreen('auth_client');
       setLoading(false);
       return;
@@ -283,7 +282,7 @@ function AppContent() {
     return (
       <>
         {profile.role === 'client' ? (
-          <ClientPortal user={user} profile={profile} onLogout={logout} urlLawyerId={urlLawyerId || firmPortalLawyerId || profile.linked_lawyer_id} />
+          <ClientPortal user={user} profile={profile} onLogout={logout} urlLawyerId={urlLawyerId || profile.linked_lawyer_id} />
         ) : (
           <LawyerPortal user={user} profile={profile} onLogout={logout} />
         )}
@@ -344,9 +343,8 @@ function AppContent() {
 
   // Unauthenticated: show auth screens
   if (screen === 'auth_client') {
-    const effectiveLawyerId = urlLawyerId || firmPortalLawyerId;
-    if (effectiveLawyerId) {
-      return <ClientZeroAuth lawyerId={effectiveLawyerId} inviteToken={inviteToken || undefined} onAuth={handleAuth} onBack={() => setScreen('role_gate')} />;
+    if (urlLawyerId) {
+      return <ClientZeroAuth lawyerId={urlLawyerId} inviteToken={inviteToken || undefined} onAuth={handleAuth} onBack={() => setScreen('role_gate')} />;
     }
     // Client without invite link - show basic auth
     return <ClientZeroAuth lawyerId="" onAuth={handleAuth} onBack={() => setScreen('role_gate')} />;

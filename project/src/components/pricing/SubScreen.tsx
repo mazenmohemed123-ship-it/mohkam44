@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Crown, Zap, Users, Lock, Check, Wallet, Shield, Globe } from 'lucide-react';
 import { Button, Card, Badge, Spinner } from '../atoms';
 import { supabase } from '../../services/supabase';
-import { type Tier } from '../../context/RoleContext';
+import { type Tier, useRole } from '../../context/RoleContext';
 import { isCaseCreationBlocked, TIER_CASE_LIMITS } from '../../services/caseQuotas';
 
 /* ─── Country-based pricing via IP geolocation ─── */
@@ -237,6 +237,7 @@ function detectLang(): 'ar' | 'en' {
 }
 
 export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
+  const { setProfile } = useRole();
   const [upgrading] = useState<string | null>(null);
   const [currency, setCurrency] = useState<string>('USD');
   const [lang, setLang] = useState<'ar' | 'en'>('ar');
@@ -354,6 +355,37 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
     setCoupon(couponData);
     setCouponError('');
     push(`تم تطبيق خصم ${couponData.discount_percent}% ✅`, 'success');
+
+    if (couponData.discount_percent === 100) {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+      
+      await supabase
+        .from('profiles')
+        .update({
+          tier: couponData.tier_target,
+          expires_at: expiresAt.toISOString(),
+          is_frozen: false,
+        })
+        .eq('id', profile.id);
+
+      await supabase
+        .from('coupons')
+        .update({ used_count: couponData.used_count + 1 })
+        .eq('id', couponData.id);
+
+      push(`تم تفعيل باقة ${
+        couponData.tier_target === 'pro' ? 'Pro ⭐' : 'Team 🏆'
+      } مجاناً ✅`, 'success');
+
+      setProfile({
+        ...profile,
+        tier: couponData.tier_target as any,
+        expires_at: expiresAt.toISOString(),
+      });
+      
+      return;
+    }
   };
 
   const basePrice = selectedTier?.priceUSD || 0;
