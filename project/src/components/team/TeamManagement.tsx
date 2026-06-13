@@ -124,7 +124,9 @@ export function TeamManagement({ masterLawyerId, tier, push }: TeamManagementPro
           is_emergency_enabled: false,
         };
 
-        const { error: profileError } = await supabase.from('profiles').insert([profile]);
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert([profile], { onConflict: 'id' });
         if (profileError) {
           push('خطأ في إنشاء الملف الشخصي', 'danger');
         } else {
