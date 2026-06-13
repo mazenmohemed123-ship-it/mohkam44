@@ -711,29 +711,32 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
         const matchedMember = teamMembersRef.current.find(m => m.id === msg.sender_id);
         const senderName = matchedMember ? matchedMember.full_name : '';
-        setHumanMsgs((prev) => {
-          if (prev.some((m) => m.id === msg.id)) return prev;
-          return [...prev, {
-            id: msg.id,
-            from: (msg.sender_id === user.id
-              ? 'user'
-              : isSystemMessage 
-                ? 'system' 
-                : ['owner', 'partner', 'lawyer'].includes(msg.sender_role) 
-                  ? 'lawyer' 
-                  : ['assistant', 'secretary', 'accountant', 'staff'].includes(msg.sender_role) 
-                    ? 'staff' 
-                    : 'lawyer') as 'lawyer' | 'staff' | 'user' | 'bot' | 'system',
-            staffName: senderName,
-            text: msg.message_text,
-            time: new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
-            attachment_url: msg.attachment_url,
-            attachment_type: msg.attachment_type,
-            isSystem: isSystemMessage,
-            isEmergency: msg.message_text?.includes('طوارئ') || msg.message_text?.includes('🆘'),
-            sender_id: msg.sender_id,
-            sender_role: msg.sender_role,
-          }];
+        
+        const newMsg: ChatMsg = {
+          id: msg.id,
+          from: (msg.sender_id === user.id
+            ? 'user'
+            : isSystemMessage 
+              ? 'system' 
+              : ['owner', 'partner', 'lawyer'].includes(msg.sender_role) 
+                ? 'lawyer' 
+                : ['assistant', 'secretary', 'accountant', 'staff'].includes(msg.sender_role) 
+                  ? 'staff' 
+                  : 'lawyer') as 'lawyer' | 'staff' | 'user' | 'bot' | 'system',
+          staffName: senderName,
+          text: msg.message_text,
+          time: new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+          attachment_url: msg.attachment_url,
+          attachment_type: msg.attachment_type,
+          isSystem: isSystemMessage,
+          isEmergency: msg.message_text?.includes('طوارئ') || msg.message_text?.includes('🆘'),
+          sender_id: msg.sender_id,
+          sender_role: msg.sender_role,
+        };
+
+        setHumanMsgs(prev => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
         });
       })
       .subscribe();
@@ -906,6 +909,8 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
     setInput('');
 
+    // لما تبعت رسالة — متضيفش للـ state يدوياً
+    // سيب الـ Realtime subscription هو اللي يضيفها
     const { error: insertErr } = await supabase.from('messages').insert([{
       case_id: selectedCase.id,
       sender_id: user.id,
