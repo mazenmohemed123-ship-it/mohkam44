@@ -414,9 +414,9 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
 
-  const chatDropdownRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isSendingMsg = useRef(false);
   const { list: notifList, push } = useNotifications();
 
   const ensureGeneralChatCase = async () => {
@@ -858,84 +858,90 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   };
 
   const send = async (attachment?: File) => {
+    if (isSendingMsg.current) return;
     if (!input.trim() && !attachment) return;
     const { allowed, cooldownSeconds } = checkFloodLimit();
     if (!allowed) { push(`⚠️ إرسال سريع جداً! يرجى الانتظار ${cooldownSeconds} ثانية.`, 'warning'); return; }
 
-    // Tier-based quota check for file uploads
-    if (attachment && selectedCase) {
-      if (lawyerTier === 'free') {
-        push('مفيش رفع صور أو ملفات في الباقة المجانية للمحامي ⚠️', 'warning');
+    isSendingMsg.current = true;
+    try {
+      // Tier-based quota check for file uploads
+      if (attachment && selectedCase) {
+        if (lawyerTier === 'free') {
+          push('مفيش رفع صور أو ملفات في الباقة المجانية للمحامي ⚠️', 'warning');
+          return;
+        }
+        const dailyCount = await getDailyChatUploadCount(selectedCase.id, lawyerInfo?.id || '');
+        if (lawyerTier === 'pro' && dailyCount >= 30) {
+          push('وصلت لحد الصور اليومي للمحامي', 'warning');
+          return;
+        }
+        const fileSizeMB = attachment.size / (1024 * 1024);
+        const quotaCheck = checkChatUploadQuota(lawyerProfile?.tier || 'free', dailyCount, fileSizeMB);
+        if (!quotaCheck.allowed) {
+          setQuotaWarning(quotaCheck.reason || 'تم تجاوز الحد');
+          return;
+        }
+      }
+
+      const txt = input;
+      const userMsgTime = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+      let attachmentUrl: string | undefined;
+      let attachmentType: 'image' | 'video' | undefined;
+
+      // Handle file upload for human chat (not bot)
+      if (attachment && selectedCase && activeChatTarget !== 'bot') {
+        const path = `chat/${selectedCase.id}/${Date.now()}_${attachment.name}`;
+        const { error: uploadErr } = await supabase.storage.from('chat-attachments').upload(path, attachment);
+        if (!uploadErr) {
+          const { data } = supabase.storage.from('chat-attachments').getPublicUrl(path);
+          attachmentUrl = data?.publicUrl;
+          attachmentType = attachment.type.startsWith('image/') ? 'image' : attachment.type.startsWith('video/') ? 'video' : undefined;
+        } else {
+          console.error('Error uploading attachment:', uploadErr);
+          push('خطأ في رفع الملف', 'danger');
+          return;
+        }
+      }
+
+      const userMsg: ChatMsg = { id: 'u' + Date.now(), from: 'user', text: txt, time: userMsgTime, attachment_url: attachmentUrl, attachment_type: attachmentType };
+
+      /* LOCAL BOT MODE: Process entirely locally, no DB insert - TEXT ONLY */
+      if (activeChatTarget === 'bot') {
+        setBotMsgs((p) => [...p, userMsg]);
+        setInput('');
+        const reply = await botReply(txt);
+        setTimeout(() => setBotMsgs((p) => [...p, { id: 'b' + Date.now(), from: 'bot', text: reply, time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) }]), 420);
         return;
       }
-      const dailyCount = await getDailyChatUploadCount(selectedCase.id, lawyerInfo?.id || '');
-      if (lawyerTier === 'pro' && dailyCount >= 30) {
-        push('وصلت لحد الصور اليومي للمحامي', 'warning');
+
+      /* REMOTE MODE: Insert to messages table for real-time chat with lawyer/staff */
+      if (!selectedCase) {
+        push('⚠️ لا توجد قضية نشطة لإرسال الرسالة إليها. يرجى الانتظار حتى يتم ربط حسابك بقضية.', 'warning');
         return;
       }
-      const fileSizeMB = attachment.size / (1024 * 1024);
-      const quotaCheck = checkChatUploadQuota(lawyerProfile?.tier || 'free', dailyCount, fileSizeMB);
-      if (!quotaCheck.allowed) {
-        setQuotaWarning(quotaCheck.reason || 'تم تجاوز الحد');
-        return;
-      }
-    }
 
-    const txt = input;
-    const userMsgTime = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-
-    let attachmentUrl: string | undefined;
-    let attachmentType: 'image' | 'video' | undefined;
-
-    // Handle file upload for human chat (not bot)
-    if (attachment && selectedCase && activeChatTarget !== 'bot') {
-      const path = `chat/${selectedCase.id}/${Date.now()}_${attachment.name}`;
-      const { error: uploadErr } = await supabase.storage.from('chat-attachments').upload(path, attachment);
-      if (!uploadErr) {
-        const { data } = supabase.storage.from('chat-attachments').getPublicUrl(path);
-        attachmentUrl = data?.publicUrl;
-        attachmentType = attachment.type.startsWith('image/') ? 'image' : attachment.type.startsWith('video/') ? 'video' : undefined;
-      } else {
-        console.error('Error uploading attachment:', uploadErr);
-        push('خطأ في رفع الملف', 'danger');
-        return;
-      }
-    }
-
-    const userMsg: ChatMsg = { id: 'u' + Date.now(), from: 'user', text: txt, time: userMsgTime, attachment_url: attachmentUrl, attachment_type: attachmentType };
-
-    /* LOCAL BOT MODE: Process entirely locally, no DB insert - TEXT ONLY */
-    if (activeChatTarget === 'bot') {
-      setBotMsgs((p) => [...p, userMsg]);
       setInput('');
-      const reply = await botReply(txt);
-      setTimeout(() => setBotMsgs((p) => [...p, { id: 'b' + Date.now(), from: 'bot', text: reply, time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) }]), 420);
-      return;
-    }
 
-    /* REMOTE MODE: Insert to messages table for real-time chat with lawyer/staff */
-    if (!selectedCase) {
-      push('⚠️ لا توجد قضية نشطة لإرسال الرسالة إليها. يرجى الانتظار حتى يتم ربط حسابك بقضية.', 'warning');
-      return;
-    }
+      // لما تبعت رسالة — متضيفش للـ state يدوياً
+      // سيب الـ Realtime subscription هو اللي يضيفها
+      const { error: insertErr } = await supabase.from('messages').insert([{
+        case_id: selectedCase.id,
+        sender_id: user.id,
+        sender_role: 'client',
+        message_text: sanitize(txt) || (attachment ? '📎 مرفق' : ''),
+        attachment_url: attachmentUrl,
+        attachment_type: attachmentType,
+        room_type: 'client_chat',
+      }]);
 
-    setInput('');
-
-    // لما تبعت رسالة — متضيفش للـ state يدوياً
-    // سيب الـ Realtime subscription هو اللي يضيفها
-    const { error: insertErr } = await supabase.from('messages').insert([{
-      case_id: selectedCase.id,
-      sender_id: user.id,
-      sender_role: 'client',
-      message_text: sanitize(txt) || (attachment ? '📎 مرفق' : ''),
-      attachment_url: attachmentUrl,
-      attachment_type: attachmentType,
-      room_type: 'client_chat',
-    }]);
-
-    if (insertErr) {
-      console.error('Error inserting message to database:', insertErr);
-      push('❌ خطأ في إرسال الرسالة', 'danger');
+      if (insertErr) {
+        console.error('Error inserting message to database:', insertErr);
+        push('❌ خطأ في إرسال الرسالة', 'danger');
+      }
+    } finally {
+      isSendingMsg.current = false;
     }
   };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Scale, Mic, LogOut, ClipboardList, MessageSquare, User as UserIcon, Crown, Settings, FileText, Bell, Calculator, AlertTriangle, Calendar, Zap, CreditCard as Edit3, Clock, Check, Wallet, CreditCard, Users } from 'lucide-react';
 import { Button, Card, NotificationUI, Badge } from '../atoms';
 import { CasesTable } from '../tables/CasesTable';
@@ -313,20 +313,28 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
     setPendingAppointments(appointments.filter((a) => a.status === 'pending'));
   }, [appointments]);
 
+  const isCreatingCase = useRef(false);
+
   const handleAddEmptyCase = async () => {
-    if (isCaseCreationBlocked(profile.tier || 'free', cases.length)) {
-      push(profile.tier === 'free' ? 'وصلت للحد الأقصى — اشترك في Pro' : 'وصلت للحد الأقصى للباقة الحالية', 'warning');
-      return;
+    if (isCreatingCase.current) return;
+    isCreatingCase.current = true;
+    try {
+      if (isCaseCreationBlocked(profile.tier || 'free', cases.length)) {
+        push(profile.tier === 'free' ? 'وصلت للحد الأقصى — اشترك في Pro' : 'وصلت للحد الأقصى للباقة الحالية', 'warning');
+        return;
+      }
+      const payload = {
+        case_number: 'MHK-' + Date.now().toString().slice(-5),
+        case_type: '', client_name: '', client_phone: '',
+        judgment: 'قيد الانتظار', total_fees: 0, admin_fees: 0,
+        lawyer_id: effectiveLawyerId,
+      };
+      const newCase = await addCase(payload);
+      if (newCase) push('✨ تم إضافة قضية جديدة', 'success');
+      else push('خطأ في الإضافة', 'danger');
+    } finally {
+      isCreatingCase.current = false;
     }
-    const payload = {
-      case_number: 'MHK-' + Date.now().toString().slice(-5),
-      case_type: '', client_name: '', client_phone: '',
-      judgment: 'قيد الانتظار', total_fees: 0, admin_fees: 0,
-      lawyer_id: effectiveLawyerId,
-    };
-    const newCase = await addCase(payload);
-    if (newCase) push('✨ تم إضافة قضية جديدة', 'success');
-    else push('خطأ في الإضافة', 'danger');
   };
 
   const handleUpdateCase = async (id: string, patch: Record<string, any>) => {
