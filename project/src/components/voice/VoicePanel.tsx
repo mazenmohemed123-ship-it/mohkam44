@@ -7,6 +7,34 @@ import { sanitize } from '../../services/sanitize';
 import { isCaseCreationBlocked } from '../../services/caseQuotas';
 import { useRole } from '../../context/RoleContext';
 
+const voiceLangs = [
+  { code: 'ar', label: '🇪🇬 عربي' },
+  { code: 'ar_ma', label: '🇲🇦 دارجة' },
+  { code: 'ar_sa', label: '🇸🇦 سعودي' },
+  { code: 'fr', label: '🇫🇷 Français' },
+  { code: 'en', label: '🇬🇧 English' },
+  { code: 'tr', label: '🇹🇷 Türkçe' },
+  { code: 'it', label: '🇮🇹 Italiano' },
+  { code: 'es', label: '🇪🇸 Español' },
+  { code: 'de', label: '🇩🇪 Deutsch' },
+];
+
+const getLangCode = (locale: string) => {
+  const langs: Record<string, string> = {
+    ar: 'ar-EG',      // عربي مصري
+    ar_ma: 'ar-MA',   // دارجة مغربية
+    ar_sa: 'ar-SA',   // عربي سعودي
+    ar_ae: 'ar-AE',   // عربي إماراتي
+    fr: 'fr-FR',      // فرنسي
+    en: 'en-US',      // إنجليزي
+    tr: 'tr-TR',      // تركي
+    it: 'it-IT',      // إيطالي
+    es: 'es-ES',      // إسباني
+    de: 'de-DE',      // ألماني
+  };
+  return langs[locale] || 'ar-EG';
+};
+
 interface VoicePanelProps {
   cases: any[];
   lawyerId: string;
@@ -23,19 +51,29 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
   const [result, setResult] = useState<any>(null);
   const [fields, setFields] = useState<Partial<ParsedVoice>>({});
   const [saving, setSaving] = useState(false);
+  const [voiceLang, setVoiceLang] = useState('ar');
   const recRef = useRef<any>(null);
 
   const startListen = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { alert('استخدم Chrome أو Edge للتسجيل الصوتي'); return; }
     const r = new SR();
-    r.lang = 'ar-EG'; r.continuous = true; r.interimResults = true;
+    r.lang = getLangCode(voiceLang);
+    r.continuous = false;
+    r.interimResults = false;
     r.onresult = (e: any) => {
       let t = '';
       for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript + ' ';
-      setTranscript(t.trim());
+      const text = t.trim();
+      setTranscript(text);
+      if (text) {
+        process(text);
+      }
     };
     r.onerror = () => setMode('idle');
+    r.onend = () => {
+      setMode(prev => prev === 'listening' ? 'idle' : prev);
+    };
     r.start();
     recRef.current = r;
     setMode('listening');
@@ -131,26 +169,54 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
         {/* Voice recording mode */}
         {(mode === 'idle' || mode === 'listening') && (
           <div className="fade-up" style={{ textAlign: 'center', padding: '24px 0' }}>
-            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-              {mode === 'listening' && (
-                <>
-                  <div className="ping" style={{ position: 'absolute', width: 104, height: 104, borderRadius: '50%', background: 'rgba(59,95,192,.2)' }} />
-                  <div className="ping" style={{ position: 'absolute', width: 136, height: 136, borderRadius: '50%', background: 'rgba(59,95,192,.1)', animationDelay: '.35s' }} />
-                </>
-              )}
-              <button
-                onClick={mode === 'listening' ? () => process(transcript) : startListen}
-                className={mode === 'listening' ? 'mic-active' : ''}
-                style={{
-                  width: 90, height: 90, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                  background: mode === 'listening' ? 'var(--navy-light)' : 'var(--navy)',
-                  color: '#fff', fontSize: 34,
-                  boxShadow: '0 8px 30px rgba(15,37,87,.3)', transition: 'all .3s',
-                  position: 'relative', zIndex: 1,
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
+              <select 
+                value={voiceLang}
+                disabled={mode === 'listening'}
+                onChange={(e) => setVoiceLang(e.target.value)}
+                style={{ 
+                  padding: '4px 8px', 
+                  borderRadius: 6,
+                  fontSize: 12,
+                  marginLeft: 4,
+                  border: '1.5px solid var(--border)',
+                  background: '#fff',
+                  color: 'var(--navy)',
+                  fontWeight: 600,
+                  outline: 'none',
+                  cursor: 'pointer',
+                  fontFamily: "'Cairo', sans-serif",
+                  opacity: mode === 'listening' ? 0.6 : 1
                 }}
               >
-                {mode === 'listening' ? <MicOff size={32} /> : <Mic size={32} />}
-              </button>
+                {voiceLangs.map(l => (
+                  <option key={l.code} value={l.code}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+
+              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                {mode === 'listening' && (
+                  <>
+                    <div className="ping" style={{ position: 'absolute', width: 104, height: 104, borderRadius: '50%', background: 'rgba(59,95,192,.2)' }} />
+                    <div className="ping" style={{ position: 'absolute', width: 136, height: 136, borderRadius: '50%', background: 'rgba(59,95,192,.1)', animationDelay: '.35s' }} />
+                  </>
+                )}
+                <button
+                  onClick={mode === 'listening' ? () => process(transcript) : startListen}
+                  className={mode === 'listening' ? 'mic-active' : ''}
+                  style={{
+                    width: 90, height: 90, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                    background: mode === 'listening' ? 'var(--navy-light)' : 'var(--navy)',
+                    color: '#fff', fontSize: 34,
+                    boxShadow: '0 8px 30px rgba(15,37,87,.3)', transition: 'all .3s',
+                    position: 'relative', zIndex: 1,
+                  }}
+                >
+                  {mode === 'listening' ? <MicOff size={32} /> : <Mic size={32} />}
+                </button>
+              </div>
             </div>
 
             {mode === 'listening' ? (
