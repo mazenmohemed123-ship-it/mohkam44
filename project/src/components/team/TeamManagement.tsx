@@ -95,6 +95,32 @@ export function TeamManagement({ masterLawyerId, tier, push }: TeamManagementPro
 
     setSaving(true);
     try {
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', addEmail)
+        .maybeSingle();
+
+      if (existingUser) {
+        await supabase
+          .from('profiles')
+          .update({
+            master_lawyer_id: masterLawyerId,
+            role: addRole,
+            tier: 'team',
+            can_manage_appointments: addRole === 'secretary',
+            can_edit_documents: addRole === 'assistant',
+            can_reply_client_chats: addRole !== 'accountant',
+          })
+          .eq('id', existingUser.id);
+        push('تم إضافة العضو بنجاح ✅', 'success');
+        setAddName(''); setAddRole('assistant'); setAddPhone(''); setAddEmail(''); setAddPassword('');
+        setShowAddForm(false);
+        loadStaff();
+        setSaving(false);
+        return;
+      }
+
       // Create auth account
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: addEmail,
