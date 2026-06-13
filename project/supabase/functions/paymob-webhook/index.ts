@@ -127,7 +127,37 @@ Deno.serve(async (req: Request) => {
 
     // If payment was successful, process upgrades/fees logic
     if (isSuccess) {
-      if (!paymentRecord.case_id) {
+      // 1. Increment coupon usage if a coupon was used
+      if (paymentRecord.metadata?.coupon_id) {
+        const { data: couponData } = await supabaseAdmin
+          .from("coupons")
+          .select("used_count")
+          .eq("id", paymentRecord.metadata.coupon_id)
+          .maybeSingle();
+        
+        if (couponData) {
+          await supabaseAdmin
+            .from("coupons")
+            .update({ used_count: (couponData.used_count || 0) + 1 })
+            .eq("id", paymentRecord.metadata.coupon_id);
+          console.log(`Incremented used_count for coupon ${paymentRecord.metadata.coupon_id}`);
+        }
+      }
+
+      // 2. Process payment based on type / case_id
+      if (paymentRecord.metadata?.type === "commission_payment") {
+        // Reset commission debt to 0
+        const { error: profileError } = await supabaseAdmin
+          .from("profiles")
+          .update({ commission_debt: 0 })
+          .eq("id", paymentRecord.client_id);
+        
+        if (profileError) {
+          console.error("Failed to reset commission debt:", profileError);
+        } else {
+          console.log(`Commission debt reset to 0 for profile ${paymentRecord.client_id}`);
+        }
+      } else if (!paymentRecord.case_id) {
         // This is a subscription upgrade for a lawyer
         const tier = paymentRecord.metadata?.tier || "free";
         const isAutoRenew = paymentRecord.metadata?.auto_renew ?? true;

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 import { supabase } from '../services/supabase';
 
 export type FirmRole = 'owner' | 'partner' | 'lawyer' | 'assistant' | 'secretary' | 'accountant';
-export type Tier = 'free' | 'premium' | 'team';
+export type Tier = 'free' | 'pro' | 'team';
 
 export interface Profile {
   id: string;
@@ -105,7 +105,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   /* TIERED STORAGE LIMITS - Daily upload capacity */
   const dailyUploadLimitMB = tier === 'team'
     ? Infinity  // Unlimited
-    : tier === 'premium'
+    : tier === 'pro'
       ? 2048     // 2 GB
       : 50;      // 50 MB for free
 

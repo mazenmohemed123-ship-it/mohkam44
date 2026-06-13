@@ -122,22 +122,24 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
 
   // Real-time subscription for profile changes
   useEffect(() => {
+    if (!user?.id) return;
+
     const channel = supabase
-      .channel('profile-changes')
+      .channel('profile-tier-sync')
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'profiles',
         filter: `id=eq.${user.id}`,
       }, (payload) => {
-        setProfile(payload.new as Profile);
+        setContextProfile(payload.new as Profile);
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user.id]);
+  }, [user?.id]);
 
   const refreshProfile = async () => {
     const { data: freshProfile } = await supabase
@@ -422,6 +424,22 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
       push('خطأ في حفظ البيانات', 'danger');
     }
     setSavingPayment(false);
+  };
+
+  const handlePayDebt = async () => {
+    const { data } = await supabase.functions.invoke(
+      'create-checkout-session',
+      {
+        body: {
+          amount: profile.commission_debt || 0,
+          client_id: user.id,
+          type: 'commission_payment',
+        }
+      }
+    );
+    if (data?.url || data?.payment_url) {
+      window.open(data.url || data.payment_url, '_blank');
+    }
   };
 
   const allTabs = [
@@ -722,6 +740,22 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
               <p style={{ fontSize: 11, color: 'var(--muted)' }}>
                 عمولة 5% من كل دفعة مؤكدة تُخصم تلقائياً عند تأكيد استلام المبلغ
               </p>
+              {(profile.commission_debt || 0) > 0 && (
+                <div style={{
+                  background: '#fee2e2', 
+                  border: '1px solid #ef4444',
+                  borderRadius: 8, padding: 16, marginTop: 12
+                }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: '#991b1b', marginBottom: 4 }}>⚠️ رصيد مستحق للمنصة</h3>
+                  <p style={{fontSize: 24, fontWeight: 'bold', color: '#dc2626', marginBottom: 8}}>
+                    {profile.commission_debt} ج.م
+                  </p>
+                  <p style={{ fontSize: 12, color: '#7f1d1d', marginBottom: 12 }}>يرجى سداد المبلغ المستحق للاستمرار في استخدام المنصة</p>
+                  <Button variant="danger" size="sm" onClick={() => handlePayDebt()}>
+                    💳 سداد الآن
+                  </Button>
+                </div>
+              )}
             </Card>
 
             {/* Payment Confirmation by Case */}

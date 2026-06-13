@@ -27,7 +27,7 @@ Deno.serve(async (req: Request) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { tier, amount, currency, case_id, client_id, channel, redirect_origin } = body;
+    const { tier, amount, currency, case_id, client_id, channel, redirect_origin, type, metadata } = body;
 
     // Validate minimum required fields
     if (!amount || !client_id) {
@@ -60,7 +60,9 @@ Deno.serve(async (req: Request) => {
         metadata: {
           tier: tier || null,
           channel: channel || "card",
-          is_sandbox: isDummy
+          is_sandbox: isDummy,
+          type: type || "subscription_payment",
+          ...(metadata || {})
         }
       })
       .select()

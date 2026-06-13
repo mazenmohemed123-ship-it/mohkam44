@@ -2,7 +2,7 @@ import type { Tier } from '../context/RoleContext';
 
 export const TIER_CASE_LIMITS: Record<Tier, number> = {
   free: 5,
-  premium: 15,
+  pro: 15,
   team: Infinity,
 };
 

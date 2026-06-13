@@ -9,7 +9,7 @@ export interface ChatQuota {
 
 export const TIER_CHAT_QUOTAS: Record<Tier, ChatQuota> = {
   free: { maxImagesPerDay: 10, maxFileSizeMB: 50, isUnlimited: false },
-  premium: { maxImagesPerDay: 30, maxFileSizeMB: 100, isUnlimited: false },
+  pro: { maxImagesPerDay: 30, maxFileSizeMB: 100, isUnlimited: false },
   team: { maxImagesPerDay: Infinity, maxFileSizeMB: Infinity, isUnlimited: true },
 };
 

@@ -104,7 +104,7 @@ const CURRENCY_RATES: Record<string, { rate: number; symbol: string; name: strin
 /* Base prices in USD */
 const BASE_PRICES: Record<string, { monthly: number; name: string; nameAr: string }> = {
   free: { monthly: 0, name: 'Free', nameAr: 'مجاني' },
-  premium: { monthly: 20, name: 'Pro', nameAr: 'احترافي' },
+  pro: { monthly: 20, name: 'Pro', nameAr: 'احترافي' },
   team: { monthly: 50, name: 'Team', nameAr: 'فريق' },
 };
 
@@ -116,7 +116,7 @@ const TRANSLATIONS = {
     month: 'شهر',
     features: {
       free: ['5 قضايا فقط', 'تسجيل صوتي أساسي', 'بوابة الموكل'],
-      premium: [
+      pro: [
         'شات ريل تايم مع الموكلين',
         'رفع حتى 30 صورة يومياً',
         'مساحة ملفات 100 ميجا',
@@ -161,7 +161,7 @@ const TRANSLATIONS = {
     month: 'month',
     features: {
       free: ['5 cases only', 'Basic voice recording', 'Client Portal'],
-      premium: [
+      pro: [
         'Real-time chat with clients',
         'Upload up to 30 images per day',
         '100 MB file storage',
@@ -212,7 +212,7 @@ interface TierInfo {
 
 const TIERS: TierInfo[] = [
   { id: 'free', priceUSD: 0, icon: Zap, color: 'var(--muted)' },
-  { id: 'premium', priceUSD: 20, icon: Crown, color: 'var(--navy)', badge: { ar: 'الأكثر شعبية', en: 'Most Popular' } },
+  { id: 'pro', priceUSD: 20, icon: Crown, color: 'var(--navy)', badge: { ar: 'الأكثر شعبية', en: 'Most Popular' } },
   { id: 'team', priceUSD: 50, icon: Users, color: 'var(--gold)', badge: { ar: 'مكاتب المحامين', en: 'Law Firms' } },
 ];
 
@@ -249,6 +249,12 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [autoRenew, setAutoRenew] = useState(true); // Default to enabled
 
+  /* Coupon State */
+  const [couponCode, setCouponCode] = useState('');
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponError, setCouponError] = useState('');
+  const [coupon, setCoupon] = useState<any>(null);
+
   /* Cardholder form state */
   const [cardName, setCardName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
@@ -270,7 +276,7 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
   const convertPrice = (usd: number, tierId?: string) => {
     // Use country-based pricing if available
     if (countryPricing && tierId) {
-      if (tierId === 'premium') return `${countryPricing.pro} ${countryPricing.symbol}`;
+      if (tierId === 'pro') return `${countryPricing.pro} ${countryPricing.symbol}`;
       if (tierId === 'team') {
         // Team = ~2.5x pro price
         const teamPrice = Math.round(countryPricing.pro * 2.5);
@@ -293,6 +299,10 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
     setCardExpiry('');
     setCardCVV('');
     setPaymentSuccess(false);
+    setCouponCode('');
+    setCouponDiscount(0);
+    setCouponError('');
+    setCoupon(null);
     setShowCheckout(true);
   };
 
@@ -301,6 +311,55 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
     setShowCheckout(false);
     setSelectedTier(null);
   };
+
+  const applyCoupon = async () => {
+    if (!couponCode) return;
+    
+    const { data: couponData } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('code', couponCode.toUpperCase())
+      .eq('is_active', true)
+      .maybeSingle();
+    
+    if (!couponData) {
+      setCouponError('كود غير صحيح');
+      setCouponDiscount(0);
+      setCoupon(null);
+      return;
+    }
+    
+    if (couponData.expires_at && new Date(couponData.expires_at) < new Date()) {
+      setCouponError('الكود منتهي الصلاحية');
+      setCouponDiscount(0);
+      setCoupon(null);
+      return;
+    }
+    
+    if (couponData.used_count >= couponData.max_uses) {
+      setCouponError('تم استخدام الكود بالحد الأقصى');
+      setCouponDiscount(0);
+      setCoupon(null);
+      return;
+    }
+
+    if (couponData.tier_target !== selectedTier?.id) {
+      setCouponError('هذا الكوبون غير صالح لهذه الباقة');
+      setCouponDiscount(0);
+      setCoupon(null);
+      return;
+    }
+    
+    setCouponDiscount(couponData.discount_percent);
+    setCoupon(couponData);
+    setCouponError('');
+    push(`تم تطبيق خصم ${couponData.discount_percent}% ✅`, 'success');
+  };
+
+  const basePrice = selectedTier?.priceUSD || 0;
+  const finalPrice = Math.round(
+    basePrice * (1 - couponDiscount / 100)
+  );
 
   const processPayment = async () => {
     if (!selectedTier || !cardName || !cardNumber || cardNumber.length < 15) return;
@@ -312,11 +371,18 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: {
           tier: selectedTier.id,
-          amount: selectedTier.priceUSD,
+          amount: finalPrice,
           currency: currency.toLowerCase(),
           client_id: profile.id,
           channel: 'card',
           redirect_origin: window.location.origin,
+          type: 'subscription_payment',
+          metadata: {
+            coupon_id: coupon?.id || null,
+            coupon_code: couponCode || null,
+            discount_percent: couponDiscount,
+            auto_renew: autoRenew,
+          }
         },
       });
 
@@ -474,9 +540,38 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                 <div style={{ background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)', borderRadius: 14, padding: 16, textAlign: 'center', border: '2px solid var(--gold)' }}>
                   <p style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, marginBottom: 4 }}>{t.amountDue}</p>
                   <p style={{ fontSize: 36, fontWeight: 900, color: 'var(--gold)', fontFamily: "'JetBrains Mono', monospace" }}>
-                    {convertPrice(selectedTier.priceUSD, selectedTier.id)}
+                    {convertPrice(finalPrice, selectedTier.id)}
                   </p>
+                  {couponDiscount > 0 && (
+                    <p style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'line-through' }}>
+                      {convertPrice(selectedTier.priceUSD, selectedTier.id)}
+                    </p>
+                  )}
                   <p style={{ fontSize: 10, color: 'var(--muted)' }}>{t.monthly}</p>
+                </div>
+
+                {/* Coupon Input */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--navy)' }}>كود الخصم (اختياري)</p>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="كود الخصم (اختياري)"
+                      value={couponCode}
+                      onChange={e => setCouponCode(e.target.value)}
+                      disabled={processing}
+                      style={{ flex: 1, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: 13, fontFamily: "'Cairo',sans-serif" }}
+                    />
+                    <Button variant="primary" onClick={applyCoupon} disabled={processing} style={{ whiteSpace: 'nowrap' }}>
+                      تطبيق
+                    </Button>
+                  </div>
+                  {couponError && <p style={{ color: 'var(--danger)', fontSize: 11, fontWeight: 700 }}>{couponError}</p>}
+                  {couponDiscount > 0 && (
+                    <p style={{ color: 'var(--success)', fontSize: 12, fontWeight: 800 }}>
+                      ✓ تم تطبيق خصم {couponDiscount}%
+                    </p>
+                  )}
                 </div>
 
                 {/* Cardholder Details Form */}

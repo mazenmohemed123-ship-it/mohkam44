@@ -143,10 +143,17 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
     setFiltered(result);
   };
 
-  const saveGlobalCommission = (rate: number) => {
+  const saveGlobalCommission = async (rate: number) => {
     localStorage.setItem('global_commission', rate.toString());
     setGlobalCommission(rate);
-    push('تم حفظ العمولة العامة ✅', 'success');
+    
+    await supabase
+      .from('profiles')
+      .update({ commission_rate: rate })
+      .in('role', ['lawyer', 'owner', 'partner']);
+    
+    await loadLawyers();
+    push(`تم تطبيق العمولة ${rate}% على الكل ✅`, 'success');
   };
 
   const saveCustomCommission = async (lawyerId: string, rate: number) => {
