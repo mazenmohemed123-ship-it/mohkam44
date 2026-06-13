@@ -66,28 +66,24 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
 
   const loadLawyers = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data: lawyersData, error } = await supabase
       .from('profiles')
-      .select('id, full_name, phone_number, role, tier, commission_debt, commission_rate, is_frozen, avatar_url, created_at, started_at, expires_at')
-      .in('role', ['owner', 'partner', 'lawyer', 'assistant', 'secretary', 'accountant'])
+      .select('*')
+      .in('role', ['lawyer', 'owner', 'partner'])
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      const lawyersWithEmail = await Promise.all(
-        data.map(async (p) => {
-          // Get email from auth metadata if available
-          const { data: authData } = await supabase.auth.admin.getUserById(p.id);
-          return {
-            ...p,
-            email: authData?.user?.email || '',
-            commission_rate: p.commission_rate || globalCommission,
-            is_frozen: p.is_frozen || false,
-            commission_debt: p.commission_debt || 0,
-          } as LawyerProfile;
-        })
-      );
-      setLawyers(lawyersWithEmail);
-      calculateStats(lawyersWithEmail);
+    if (!error && lawyersData) {
+      const mapped = lawyersData.map((p) => {
+        return {
+          ...p,
+          email: (p as any).staff_email || '',
+          commission_rate: p.commission_rate || globalCommission,
+          is_frozen: p.is_frozen || false,
+          commission_debt: p.commission_debt || 0,
+        } as LawyerProfile;
+      });
+      setLawyers(mapped);
+      calculateStats(mapped);
     }
     setLoading(false);
   };

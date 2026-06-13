@@ -353,6 +353,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   const [input, setInput] = useState('');
   const [aggregatedCases, setAggregatedCases] = useState<CaseInfo[]>([]);
   const [selectedCase, setSelectedCase] = useState<CaseInfo | null>(null);
+  const [amountPaid, setAmountPaid] = useState<number>(0);
   const [showEmg, setShowEmg] = useState(false);
   const [emgText, setEmgText] = useState('');
   const [emgSent, setEmgSent] = useState(false);
@@ -619,6 +620,29 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       }]);
     }
   }, [locale, lawyerInfo]);
+
+  useEffect(() => {
+    if (!selectedCase?.id) {
+      setAmountPaid(0);
+      return;
+    }
+
+    const fetchPayments = async () => {
+      // جيب المدفوع الحقيقي من جدول payments
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('amount')
+        .eq('case_id', selectedCase.id)
+        .eq('status', 'success');
+
+      const sum = paymentsData?.reduce(
+        (sum, p) => sum + (p.amount || 0), 0
+      ) || 0;
+      setAmountPaid(sum);
+    };
+
+    fetchPayments();
+  }, [selectedCase?.id]);
 
   /* Fetch initial messages when case is selected */
   useEffect(() => {
@@ -1038,7 +1062,6 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   const lawyerCurrency: CurrencyCode = (lawyerProfile as any)?.currency || 'EGP';
 
   const totalFees = selectedCase ? Number(selectedCase.total_fees) || 0 : 0;
-  const amountPaid = Math.floor(totalFees * 0.3);
   const amountRemaining = totalFees - amountPaid;
 
   /* TIER-BASED CHAT TRIGGERS */
