@@ -696,55 +696,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     fetchMessages();
   }, [selectedCase?.id, user.id, teamMembers, reconnectTrigger]);
 
-  /* REAL-TIME MESSAGES SUBSCRIPTION - Human chat (separate from bot) */
-  useEffect(() => {
-    if (!selectedCase) return;
 
-    const channel = supabase
-      .channel(`messages-${selectedCase.id}-${Date.now()}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `case_id=eq.${selectedCase.id}` }, (payload) => {
-        const msg = payload.new as any;
-        // Ignore internal team chat — client should not see it
-        if (msg.room_type === 'internal_team_chat') return;
-        // Detect system messages (emergency alerts)
-        const isSystemMessage = msg.message_text?.startsWith('【') || msg.sender_role === 'system';
-
-        const matchedMember = teamMembersRef.current.find(m => m.id === msg.sender_id);
-        const senderName = matchedMember ? matchedMember.full_name : '';
-        
-        const newMsg: ChatMsg = {
-          id: msg.id,
-          from: (msg.sender_id === user.id
-            ? 'user'
-            : isSystemMessage 
-              ? 'system' 
-              : ['owner', 'partner', 'lawyer'].includes(msg.sender_role) 
-                ? 'lawyer' 
-                : ['assistant', 'secretary', 'accountant', 'staff'].includes(msg.sender_role) 
-                  ? 'staff' 
-                  : 'lawyer') as 'lawyer' | 'staff' | 'user' | 'bot' | 'system',
-          staffName: senderName,
-          text: msg.message_text,
-          time: new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
-          attachment_url: msg.attachment_url,
-          attachment_type: msg.attachment_type,
-          isSystem: isSystemMessage,
-          isEmergency: msg.message_text?.includes('طوارئ') || msg.message_text?.includes('🆘'),
-          sender_id: msg.sender_id,
-          sender_role: msg.sender_role,
-        };
-
-        setHumanMsgs(prev => {
-          if (prev.some(m => m.id === newMsg.id)) return prev;
-          return [...prev, newMsg];
-        });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedCase?.id, user.id, reconnectTrigger]);
 
   /* REAL-TIME APPOINTMENT STATUS SUBSCRIPTION */
   useEffect(() => {
