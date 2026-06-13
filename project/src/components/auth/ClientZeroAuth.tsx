@@ -110,6 +110,37 @@ export function ClientZeroAuth({ lawyerId, inviteToken, onAuth, onBack }: Client
       }
       realUserId = authData.user.id;
 
+      // تأكد إن الـ GENERAL-CHAT موجود أو أنشئه
+      const { data: existingCase } = await supabase
+        .from('cases')
+        .select('id, client_id')
+        .eq('case_number', 'GENERAL-CHAT')
+        .eq('lawyer_id', linkedLawyerId)
+        .maybeSingle();
+
+      if (existingCase) {
+        // حدّث الـ client_id للـ ID الجديد
+        if (existingCase.client_id !== realUserId) {
+          await supabase
+            .from('cases')
+            .update({ client_id: realUserId })
+            .eq('id', existingCase.id);
+        }
+      } else {
+        // أنشئ GENERAL-CHAT جديد
+        await supabase.from('cases').insert({
+          case_number: 'GENERAL-CHAT',
+          client_name: cases[0]?.client_name || 'موكل',
+          client_phone: phoneNumber,
+          case_type: 'محادثة عامة',
+          judgment: 'نشط',
+          total_fees: 0,
+          admin_fees: 0,
+          lawyer_id: linkedLawyerId,
+          client_id: realUserId
+        });
+      }
+
       // ابحث عن الموكل بالرقم والمحامي
       const { data: existing } = await supabase
         .from('profiles')
