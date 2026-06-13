@@ -155,7 +155,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
     if (!user?.id) return;
 
     const channel = supabase
-      .channel('profile-tier-sync')
+      .channel(`profile-tier-sync-${user.id}-${Date.now()}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -226,7 +226,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   // Real-time subscription for cases
   useEffect(() => {
     const channel = supabase
-      .channel('cases:' + effectiveLawyerId)
+      .channel(`cases-${effectiveLawyerId}-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cases', filter: `lawyer_id=eq.${effectiveLawyerId}` }, () => loadCases(effectiveLawyerId))
       .subscribe();
     return () => {
@@ -237,7 +237,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   // Real-time subscription for emergencies - HIGH PRIORITY ALERT
   useEffect(() => {
     const channel = supabase
-      .channel('emergencies_alerts:' + effectiveLawyerId)
+      .channel(`emergencies_alerts-${effectiveLawyerId}-${Date.now()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'case_emergencies' }, async (payload) => {
         const emg = payload.new;
         const { data: caseData } = await supabase.from('cases').select('lawyer_id,client_name,client_phone').eq('id', emg.case_id).single();
@@ -265,7 +265,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   // Real-time subscription for appointment requests with sound alert
   useEffect(() => {
     const channel = supabase
-      .channel('appointments_alerts:' + effectiveLawyerId)
+      .channel(`appointments_alerts-${effectiveLawyerId}-${Date.now()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'appointment_requests', filter: `lawyer_id=eq.${effectiveLawyerId}` }, (payload) => {
         const appt = payload.new;
         if (appt.status === 'pending') {

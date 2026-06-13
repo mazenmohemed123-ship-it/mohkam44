@@ -44,7 +44,7 @@ export function CasesTable({
   onArchive,
   onDeleteCase,
 }: CasesTableProps) {
-  const { canDeleteCase, tier } = useRole();
+  const { canDeleteCase, tier, profile } = useRole();
   const [editingCell, setEditingCell] = useState<{ rowId: string; colKey: string } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [addColName, setAddColName] = useState('');
@@ -217,13 +217,18 @@ export function CasesTable({
                     >
                       🗃️
                     </button>
-                    {canDeleteCase && (
+                    {(profile?.tier === 'pro' || profile?.tier === 'team') && (
                       <button 
                         onClick={(e) => { e.stopPropagation(); onDeleteCase(row.id); }}
                         title="حذف نهائي"
-                        style={{ background: '#ef4444', color: 'white',
-                                 border: 'none', borderRadius: 6,
-                                 padding: '4px 8px', cursor: 'pointer' }}
+                        style={{ 
+                          background: '#ef4444', 
+                          color: 'white',
+                          border: 'none', 
+                          borderRadius: 6, 
+                          padding: '4px 8px', 
+                          cursor: 'pointer' 
+                        }}
                       >
                         🗑️
                       </button>

@@ -701,7 +701,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     if (!selectedCase) return;
 
     const channel = supabase
-      .channel('messages:' + selectedCase.id)
+      .channel(`messages-${selectedCase.id}-${Date.now()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `case_id=eq.${selectedCase.id}` }, (payload) => {
         const msg = payload.new as any;
         // Ignore internal team chat — client should not see it
@@ -749,7 +749,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   /* REAL-TIME APPOINTMENT STATUS SUBSCRIPTION */
   useEffect(() => {
     const channel = supabase
-      .channel('appointment_status:' + user.id)
+      .channel(`appointment_status-${user.id}-${Date.now()}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'appointment_requests', filter: `client_id=eq.${user.id}` }, (payload) => {
         const appt = payload.new as AppointmentRequest;
         setAppointmentStatus(appt);
