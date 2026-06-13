@@ -416,6 +416,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
   const endRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatDropdownRef = useRef<HTMLDivElement>(null);
   const isSendingMsg = useRef(false);
   const { list: notifList, push } = useNotifications();
 
