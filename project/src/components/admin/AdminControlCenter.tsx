@@ -52,7 +52,11 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
     'mazen@mazen.engineer',
     'mazenmohemed123@gmail.com',
   ];
-  const isAuthorized = user ? ADMIN_EMAILS.includes(user.email ?? '') : false;
+  const isAuthorized = user 
+    ? ADMIN_EMAILS.includes(user.email ?? '') 
+    : false;
+
+  console.log('Admin check:', user?.email, isAuthorized);
 
   useEffect(() => {
     if (!isAuthorized) return;
