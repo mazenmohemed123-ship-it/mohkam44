@@ -34,6 +34,23 @@ Deno.serve(async (req) => {
           </div>
         `,
       },
+      tier_upgrade: {
+        subject: 'تم ترقية باقتك في محكَم ⭐',
+        html: `
+          <div dir="rtl" style="font-family: Arial; padding: 20px; background: #f9f9f9;">
+            <h2 style="color: #2563eb;">مبروك! تم ترقية باقتك ⭐</h2>
+            <p>تم ترقية حسابك في منصة <strong>محكَم</strong> بنجاح.</p>
+            <p>يمكنك الآن الاستمتاع بجميع المميزات المتاحة.</p>
+            <br/>
+            <a href="https://mohkam.app" 
+               style="background: #2563eb; color: white; 
+                      padding: 10px 20px; border-radius: 5px; 
+                      text-decoration: none;">
+              افتح التطبيق
+            </a>
+          </div>
+        `,
+      },
     };
 
     const emailContent = type && templates[type] 

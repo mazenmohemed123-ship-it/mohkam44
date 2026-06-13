@@ -14,6 +14,19 @@ interface CountryPricing {
 }
 
 async function getPricingByCountry(): Promise<CountryPricing> {
+  const CACHE_KEY = 'mohkam_pricing';
+  const CACHE_TIME = 'mohkam_pricing_time';
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  // Check localStorage cache first
+  const cached = localStorage.getItem(CACHE_KEY);
+  const cachedTime = localStorage.getItem(CACHE_TIME);
+
+  if (cached && cachedTime &&
+      Date.now() - parseInt(cachedTime) < ONE_DAY) {
+    try { return JSON.parse(cached); } catch { /* fall through */ }
+  }
+
   try {
     const res = await fetch('https://ipapi.co/json/');
     const data = await res.json();
@@ -58,9 +71,15 @@ async function getPricingByCountry(): Promise<CountryPricing> {
     };
 
     // أي بلد تاني — سعر مرتفع افتراضي
-    return pricing[country] || {
+    const result = pricing[country] || {
       currency: 'USD', basic: 59, pro: 149, symbol: '$'
     };
+
+    // Cache the result for 24 hours
+    localStorage.setItem(CACHE_KEY, JSON.stringify(result));
+    localStorage.setItem(CACHE_TIME, Date.now().toString());
+
+    return result;
   } catch {
     return { currency: 'USD', basic: 59, pro: 149, symbol: '$' };
   }

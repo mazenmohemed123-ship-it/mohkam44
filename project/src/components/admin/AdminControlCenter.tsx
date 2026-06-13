@@ -44,6 +44,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
   const [editingCommission, setEditingCommission] = useState<string | null>(null);
   const [customCommission, setCustomCommission] = useState<number>(0);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
+  const [upgradeMenuLawyerId, setUpgradeMenuLawyerId] = useState<string | null>(null);
 
   const { list: notifList, push } = useNotifications();
 
@@ -173,6 +174,51 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
       push('Error updating tier', 'danger');
     }
     setProcessingAction(null);
+  };
+
+  const upgradeTier = async (lawyerId: string, newTier: 'free' | 'pro' | 'team') => {
+    setProcessingAction(lawyerId);
+    
+    // حدّث الباقة وتاريخ الانتهاء (30 يوم من دلوقتي)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+    
+    await supabase
+      .from('profiles')
+      .update({ 
+        tier: newTier === 'pro' ? 'premium' : newTier,
+        expires_at: expiresAt.toISOString(),
+        is_frozen: false
+      })
+      .eq('id', lawyerId);
+
+    // ابعت إشعار للمحامي
+    await supabase.functions.invoke('send-notification', {
+      body: {
+        lawyerId,
+        clientName: 'إدارة محكَم',
+        message: `تم ترقية باقتك إلى ${
+          newTier === 'team' ? 'Team 🏆' : 
+          newTier === 'pro' ? 'pro⭐' : 'Free'
+        } لمدة 30 يوم`,
+      }
+    });
+
+    // ابعت إيميل
+    const lawyer = lawyers.find(l => l.id === lawyerId);
+    if (lawyer?.email) {
+      await supabase.functions.invoke('send-email', {
+        body: {
+          to: lawyer.email,
+          type: 'tier_upgrade',
+          tierName: newTier,
+        }
+      });
+    }
+
+    await loadLawyers();
+    setProcessingAction(null);
+    push(`تم ترقية الباقة بنجاح ✅`, 'success');
   };
 
   const saveCustomCommission = async (lawyerId: string) => {
@@ -438,6 +484,60 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
                       <p style={{ fontSize: 12, fontWeight: 900, color: isDebtOverdue ? 'var(--danger)' : 'var(--text)', fontFamily: "'JetBrains Mono', monospace" }}>
                         {(lawyer.commission_debt || 0).toLocaleString()} ج
                       </p>
+                    </div>
+
+                    {/* Upgrade Tier Button */}
+                    <div style={{ position: 'relative' }}>
+                      <Button
+                        size="sm"
+                        variant="gold"
+                        onClick={() => setUpgradeMenuLawyerId(upgradeMenuLawyerId === lawyer.id ? null : lawyer.id)}
+                        disabled={processingAction === lawyer.id}
+                      >
+                        <Crown size={14} /> ترقية الباقة
+                      </Button>
+                      {upgradeMenuLawyerId === lawyer.id && (
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '100%',
+                          right: 0,
+                          marginBottom: 8,
+                          background: '#fff',
+                          border: '1.5px solid var(--border)',
+                          borderRadius: 8,
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                          zIndex: 10,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          minWidth: 140,
+                          overflow: 'hidden'
+                        }}>
+                          <button
+                            onClick={() => { upgradeTier(lawyer.id, 'free'); setUpgradeMenuLawyerId(null); }}
+                            style={{ padding: '8px 16px', background: 'none', border: 'none', textAlign: 'right', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                          >
+                            Free (مجانية)
+                          </button>
+                          <button
+                            onClick={() => { upgradeTier(lawyer.id, 'pro'); setUpgradeMenuLawyerId(null); }}
+                            style={{ padding: '8px 16px', background: 'none', border: 'none', textAlign: 'right', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                          >
+                            Pro⭐ (محترف)
+                          </button>
+                          <button
+                            onClick={() => { upgradeTier(lawyer.id, 'team'); setUpgradeMenuLawyerId(null); }}
+                            style={{ padding: '8px 16px', background: 'none', border: 'none', textAlign: 'right', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text)' }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                          >
+                            Team 🏆 (فريق)
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Freeze/Unfreeze Button */}
