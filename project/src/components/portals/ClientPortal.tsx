@@ -431,15 +431,21 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       return existing;
     }
 
-    // اجلبها من قاعدة البيانات
-    const { data, error } = await supabase
+    // اجلبها من قاعدة البيانات — بحث بالـ client_id فقط
+    let query = supabase
       .from('cases')
       .select('*')
       .eq('lawyer_id', lawyerId)
-      .eq('case_number', 'GENERAL-CHAT')
-      .eq('client_id', user.id)
-      .limit(1)
-      .maybeSingle();
+      .eq('case_number', 'GENERAL-CHAT');
+
+    if (user?.id) {
+      query = query.eq('client_id', user.id);
+    } else {
+      console.warn('No user.id available to find GENERAL-CHAT');
+      return null;
+    }
+
+    const { data, error } = await query.limit(1).maybeSingle();
 
     if (!error && data) {
       setSelectedCase(data);
@@ -903,13 +909,14 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
   /* Open InstaPay app with deep-link to transfer */
   const openInstaPay = () => {
-    const address = lawyerPaymentInfo?.instapay_address;
-    if (address) {
-      // Try instapay:// scheme with transfer parameters
-      window.location.href = `instapay://transfer?to=${encodeURIComponent(address)}`;
-    } else {
-      window.location.href = 'instapay://';
-    }
+    const addr = lawyerPaymentInfo?.instapay_address;
+    if (!addr) return;
+    const deep = `instapay://pay?username=${addr}`;
+    window.location.href = deep;
+    // Fallback: if app doesn't open, redirect to web version after 1.5s
+    setTimeout(() => {
+      window.open('https://instapay.eg', '_blank');
+    }, 1500);
   };
 
   /* Copy InstaPay ID */

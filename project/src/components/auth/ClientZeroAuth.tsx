@@ -109,6 +109,33 @@ export function ClientZeroAuth({ lawyerId, inviteToken, onAuth, onBack }: Client
         throw new Error(authError?.message || 'Auth failed');
       }
       realUserId = authData.user.id;
+
+      // ابحث عن الموكل بالرقم والمحامي
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone_number', phoneNumber)
+        .eq('linked_lawyer_id', linkedLawyerId)
+        .eq('role', 'client')
+        .maybeSingle();
+
+      if (existing) {
+        // - حدّث جدول cases:
+        //   UPDATE cases SET client_id = realUserId WHERE client_id = existing.id
+        const { error: caseErr } = await supabase
+          .from('cases')
+          .update({ client_id: realUserId })
+          .eq('client_id', existing.id);
+        if (caseErr) throw caseErr;
+
+        // - حدّث جدول profiles:
+        //   DELETE FROM profiles WHERE id = existing.id
+        const { error: delErr } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', existing.id);
+        if (delErr) throw delErr;
+      }
     } catch (err: any) {
       console.error('Supabase anonymous auth failed:', err);
       setError('فشلت عملية المصادقة الآمنة. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
