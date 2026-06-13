@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Type, X, RefreshCw, Save, AlertCircle } from 'lucide-react';
 import { Button, Field, Modal, Spinner } from '../atoms';
 import { supabase, sendPushToClient } from '../../services/supabase';
@@ -54,21 +54,31 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
   const [voiceLang, setVoiceLang] = useState('ar');
   const recRef = useRef<any>(null);
 
+  const modeRef = useRef(mode);
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+
   const startListen = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { alert('استخدم Chrome أو Edge للتسجيل الصوتي'); return; }
     const recognition = new SR();
     recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.interimResults = false;
     recognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results)
-        .map((result: any) => result[0].transcript)
-        .join('');
-      setTranscript(transcript);
+      const last = event.results[event.results.length - 1];
+      if (last.isFinal) {
+        const transcript = Array.from(event.results)
+          .map((r: any) => r[0].transcript)
+          .join(' ');
+        setTranscript(transcript);
+      }
     };
     recognition.onerror = () => setMode('idle');
     recognition.onend = () => {
-      setMode(prev => prev === 'listening' ? 'idle' : prev);
+      if (recRef.current && modeRef.current === 'listening') {
+        try { recRef.current.start(); } catch {}
+      } else {
+        setMode('idle');
+      }
     };
     recognition.lang = getLangCode(voiceLang);
     recognition.start();
