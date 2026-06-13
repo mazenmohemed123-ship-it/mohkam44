@@ -26,6 +26,8 @@ interface CasesTableProps {
   onRowClick: (row: Row) => void;
   selectedId?: string;
   onGenerateInvoiceLink: (row: Row) => void;
+  onArchive: (id: string) => void;
+  onDeleteCase: (id: string) => void;
 }
 
 export function CasesTable({
@@ -39,6 +41,8 @@ export function CasesTable({
   onRowClick,
   selectedId,
   onGenerateInvoiceLink,
+  onArchive,
+  onDeleteCase,
 }: CasesTableProps) {
   const { canDeleteCase, tier } = useRole();
   const [editingCell, setEditingCell] = useState<{ rowId: string; colKey: string } | null>(null);
@@ -204,17 +208,24 @@ export function CasesTable({
                     >
                       <Link size={12} />
                     </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onArchive(row.id); }}
+                      title="أرشفة"
+                      style={{ background: '#f59e0b', color: 'white',
+                               border: 'none', borderRadius: 6, 
+                               padding: '4px 8px', cursor: 'pointer' }}
+                    >
+                      🗃️
+                    </button>
                     {canDeleteCase && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-                        style={{
-                          background: 'transparent', border: '1px solid var(--border)',
-                          borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center',
-                          color: 'var(--danger)',
-                        }}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onDeleteCase(row.id); }}
+                        title="حذف نهائي"
+                        style={{ background: '#ef4444', color: 'white',
+                                 border: 'none', borderRadius: 6,
+                                 padding: '4px 8px', cursor: 'pointer' }}
                       >
-                        <Trash2 size={12} />
+                        🗑️
                       </button>
                     )}
                   </div>

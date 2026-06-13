@@ -37,11 +37,11 @@ function AppContent() {
   const [screen, setScreen] = useState<AppScreen>('role_gate');
   const [, setSelectedRole] = useState<UserRole>('lawyer');
 
-  const pathname = window.location.pathname;
-  const lawyerPortalMatch = pathname.match(/^\/portal\/lawyer\/([a-f0-9-]{36})/);
-  const urlLawyerId = lawyerPortalMatch 
-    ? lawyerPortalMatch[1]
-    : new URLSearchParams(window.location.search).get('join_lawyer');
+  const lawyerMatch = window.location.pathname
+    .match(/^\/portal\/lawyer\/([a-f0-9-]{36})/i);
+  const urlLawyerId = lawyerMatch?.[1] || 
+    new URLSearchParams(window.location.search)
+      .get('join_lawyer');
   const inviteToken = new URLSearchParams(window.location.search).get('client_invite_token');
 
   const [verifyingPayment, setVerifyingPayment] = useState(false);
@@ -126,42 +126,37 @@ function AppContent() {
       return;
     }
 
-    // If we have invite URL params or firm portal path, go straight to client auth
-    if ((urlLawyerId && inviteToken) || lawyerPortalMatch) {
-      setScreen('auth_client');
-      setLoading(false);
-      return;
-    }
-
-    // Check for stored client session (auto-hydrate on refresh)
-    const storedSession = localStorage.getItem(SESSION_KEY);
-    if (storedSession) {
+    const initSession = async () => {
       try {
-        const clientSession: ClientSession = JSON.parse(storedSession);
-        // Validate session is not too old (30 days max)
-        const sessionAge = Date.now() - new Date(clientSession.createdAt).getTime();
-        const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
-        if (sessionAge < maxAge) {
-          // Reactivate the Supabase anonymous session
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user && session.user.id === clientSession.userId) {
-              // Session still valid - use it
-              const clientProfile: Profile = {
-                id: clientSession.userId,
-                full_name: clientSession.clientName,
-                phone_number: clientSession.phoneNumber,
-                role: 'client',
-                tier: 'free',
-                is_emergency_enabled: true,
-                linked_lawyer_id: clientSession.linkedLawyerId,
-              };
-              setUser({ id: clientSession.userId });
-              setProfile(clientProfile);
-              setLoading(false);
-              return;
-            }
-            // Session expired or invalid - try to refresh
-            supabase.auth.signInAnonymously().then(({ data: authData }) => {
+        // Check for stored client session (auto-hydrate on refresh)
+        const storedSession = localStorage.getItem(SESSION_KEY);
+        if (storedSession) {
+          try {
+            const clientSession: ClientSession = JSON.parse(storedSession);
+            // Validate session is not too old (30 days max)
+            const sessionAge = Date.now() - new Date(clientSession.createdAt).getTime();
+            const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
+            if (sessionAge < maxAge) {
+              // Reactivate the Supabase anonymous session
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session?.user && session.user.id === clientSession.userId) {
+                // Session still valid - use it
+                const clientProfile: Profile = {
+                  id: clientSession.userId,
+                  full_name: clientSession.clientName,
+                  phone_number: clientSession.phoneNumber,
+                  role: 'client',
+                  tier: 'free',
+                  is_emergency_enabled: true,
+                  linked_lawyer_id: clientSession.linkedLawyerId,
+                };
+                setUser({ id: clientSession.userId });
+                setProfile(clientProfile);
+                setLoading(false);
+                return;
+              }
+              // Session expired or invalid - try to refresh
+              const { data: authData } = await supabase.auth.signInAnonymously();
               if (authData.user) {
                 const clientProfile: Profile = {
                   id: clientSession.userId,
@@ -174,52 +169,60 @@ function AppContent() {
                 };
                 setUser({ id: authData.user.id });
                 setProfile(clientProfile);
+                setLoading(false);
+                return;
               } else {
-                // Failed to restore - clear session
                 localStorage.removeItem(SESSION_KEY);
-                setScreen('auth_client');
               }
-              setLoading(false);
-            });
-          });
-          return;
+            } else {
+              localStorage.removeItem(SESSION_KEY);
+            }
+          } catch (e) {
+            localStorage.removeItem(SESSION_KEY);
+          }
         }
-        // Session too old - clear it
-        localStorage.removeItem(SESSION_KEY);
-      } catch {
-        localStorage.removeItem(SESSION_KEY);
-      }
-    }
 
-    // Check for device fingerprint auto-login (fallback)
-    const deviceFp = localStorage.getItem('mohkam_device_fp');
-    if (deviceFp && document.cookie.includes('mohkam_client=1')) {
-      setScreen('auth_client');
-      setLoading(false);
-      return;
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data }) => {
-            if (data) {
-              setProfile(data as Profile);
-              if (data.language) {
-                setLocale(data.language as any);
-              }
+        // Check for regular session (Supabase session)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          if (prof) {
+            setUser(session.user);
+            setProfile(prof as Profile);
+            if (prof.language) {
+              setLocale(prof.language as any);
             }
             setLoading(false);
-          });
-      } else {
-        setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Error loading session:', err);
       }
-    });
+
+      // If we have invite URL params or firm portal path, go straight to client auth
+      if (urlLawyerId || lawyerMatch) {
+        setScreen('auth_client');
+        setLoading(false);
+        return;
+      }
+
+      // Check for device fingerprint auto-login (fallback)
+      const deviceFp = localStorage.getItem('mohkam_device_fp');
+      if (deviceFp && document.cookie.includes('mohkam_client=1')) {
+        setScreen('auth_client');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(false);
+    };
+
+    initSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {

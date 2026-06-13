@@ -57,11 +57,10 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
   const startListen = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { alert('استخدم Chrome أو Edge للتسجيل الصوتي'); return; }
-    const r = new SR();
-    r.lang = getLangCode(voiceLang);
-    r.continuous = false;
-    r.interimResults = false;
-    r.onresult = (e: any) => {
+    const recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (e: any) => {
       let t = '';
       for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript + ' ';
       const text = t.trim();
@@ -70,12 +69,13 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
         process(text);
       }
     };
-    r.onerror = () => setMode('idle');
-    r.onend = () => {
+    recognition.onerror = () => setMode('idle');
+    recognition.onend = () => {
       setMode(prev => prev === 'listening' ? 'idle' : prev);
     };
-    r.start();
-    recRef.current = r;
+    recognition.lang = getLangCode(voiceLang);
+    recognition.start();
+    recRef.current = recognition;
     setMode('listening');
   };
 

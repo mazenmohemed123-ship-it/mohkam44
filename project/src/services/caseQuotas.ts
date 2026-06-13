@@ -2,14 +2,14 @@ import type { Tier } from '../context/RoleContext';
 
 export const getCaseLimit = (tier: string): number => {
   if (tier === 'free') return 5;
-  if (tier === 'pro') return 999;
+  if (tier === 'pro') return 20;
   if (tier === 'team') return 999;
   return 5;
 };
 
 export const TIER_CASE_LIMITS: Record<Tier, number> = {
   free: 5,
-  pro: 999,
+  pro: 20,
   team: 999,
 };
 
