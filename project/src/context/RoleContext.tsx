@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
+import { supabase } from '../services/supabase';
 
 export type FirmRole = 'owner' | 'partner' | 'lawyer' | 'assistant' | 'secretary' | 'accountant';
 export type Tier = 'free' | 'premium' | 'team';
@@ -47,6 +48,7 @@ export interface Profile {
 interface RoleContextType {
   profile: Profile | null;
   setProfile: (p: Profile | null) => void;
+  refreshProfile: (userId: string) => Promise<void>;
   activeRole: FirmRole;
   setActiveRole: (r: FirmRole) => void;
   tier: Tier;
@@ -69,6 +71,18 @@ const RoleContext = createContext<RoleContextType | undefined>(undefined);
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeRole, setActiveRole] = useState<FirmRole>('lawyer');
+
+  const refreshProfile = async (userId: string) => {
+    const { data: freshProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (freshProfile) {
+      setProfile(freshProfile as Profile);
+    }
+  };
 
   const tier = profile?.tier || 'free';
 
@@ -100,6 +114,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       value={{
         profile,
         setProfile,
+        refreshProfile,
         activeRole,
         setActiveRole,
         tier,

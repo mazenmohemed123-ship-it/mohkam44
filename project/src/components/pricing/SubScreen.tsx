@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Crown, Zap, Users, Lock, Check, Wallet, Shield, Globe } from 'lucide-react';
 import { Button, Card, Badge, Spinner } from '../atoms';
 import { supabase } from '../../services/supabase';
-import { useRole, type Tier } from '../../context/RoleContext';
+import { type Tier } from '../../context/RoleContext';
 import { isCaseCreationBlocked, TIER_CASE_LIMITS } from '../../services/caseQuotas';
 
 /* ─── Country-based pricing via IP geolocation ─── */
@@ -240,7 +240,7 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
   const [upgrading] = useState<string | null>(null);
   const [currency, setCurrency] = useState<string>('USD');
   const [lang, setLang] = useState<'ar' | 'en'>('ar');
-  const { tier } = useRole();
+  const tier = (profile?.tier || 'free') as Tier;
 
   /* Checkout modal state */
   const [showCheckout, setShowCheckout] = useState(false);

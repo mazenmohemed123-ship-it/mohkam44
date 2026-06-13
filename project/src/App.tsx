@@ -5,7 +5,7 @@ import { ClientZeroAuth } from './components/auth/ClientZeroAuth';
 import { LawyerPortal } from './components/portals/LawyerPortal';
 import { ClientPortal } from './components/portals/ClientPortal';
 import { AdminControlCenter } from './components/admin/AdminControlCenter';
-import { RoleProvider } from './context/RoleContext';
+import { RoleProvider, useRole } from './context/RoleContext';
 import { CaseProvider } from './context/CaseContext';
 import { supabase } from './services/supabase';
 import { Spinner } from './components/atoms';
@@ -35,7 +35,7 @@ interface ClientSession {
 function AppContent() {
   const { setLocale } = useLocale();
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const { profile, setProfile } = useRole();
   const [loading, setLoading] = useState(true);
   const [screen, setScreen] = useState<AppScreen>('role_gate');
   const [, setSelectedRole] = useState<UserRole>('lawyer');

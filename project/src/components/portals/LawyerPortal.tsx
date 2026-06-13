@@ -54,7 +54,17 @@ interface LawyerPortalProps {
 
 export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPortalProps) {
   const { locale, setLocale } = useLocale();
-  const [profile, setProfile] = useState<Profile>(initProfile);
+  const { profile: contextProfile, setProfile: setContextProfile } = useRole();
+  const profile = contextProfile || initProfile;
+
+  const setProfile = (updater: Profile | ((prev: Profile) => Profile)) => {
+    if (typeof updater === 'function') {
+      setContextProfile(updater(profile));
+    } else {
+      setContextProfile(updater);
+    }
+  };
+
   const [tab, setTab] = useState('cases');
   const [showVoice, setShowVoice] = useState(false);
   const [cols, setCols] = useState(DEFAULT_COLS);
@@ -87,7 +97,8 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   const [currency, setCurrency] = useState<CurrencyCode>((initProfile as any).currency || 'EGP');
 
   const { list: notifList, push } = useNotifications();
-  const { canViewChat, canViewCaseDetails, canManageBilling, tier, activeRole } = useRole();
+  const { canViewChat, canViewCaseDetails, canManageBilling, activeRole } = useRole();
+  const tier = profile.tier || 'free';
   const {
     cases, loadCases, addCase, updateCase, deleteCase,
     selectedCase, setSelectedCase, loadEvents, loadAppointments, appointments,
@@ -108,6 +119,42 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   }, [commissionDebt]);
 
   useEffect(() => { loadCases(effectiveLawyerId); loadAppointments(effectiveLawyerId); }, [effectiveLawyerId, loadCases, loadAppointments]);
+
+  // Real-time subscription for profile changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('profile-changes')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${user.id}`,
+      }, (payload) => {
+        setProfile(payload.new as Profile);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user.id]);
+
+  const refreshProfile = async () => {
+    const { data: freshProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
+    
+    if (freshProfile) {
+      setProfile(freshProfile as Profile);
+    }
+  };
+
+  // Fetch fresh profile on mount
+  useEffect(() => {
+    refreshProfile();
+  }, []);
 
 
 
