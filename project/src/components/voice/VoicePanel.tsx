@@ -58,16 +58,13 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { alert('استخدم Chrome أو Edge للتسجيل الصوتي'); return; }
     const recognition = new SR();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onresult = (e: any) => {
-      let t = '';
-      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript + ' ';
-      const text = t.trim();
-      setTranscript(text);
-      if (text) {
-        process(text);
-      }
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((result: any) => result[0].transcript)
+        .join('');
+      setTranscript(transcript);
     };
     recognition.onerror = () => setMode('idle');
     recognition.onend = () => {
