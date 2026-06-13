@@ -39,12 +39,21 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [globalCommission, setGlobalCommission] = useState(5);
-  const [savingCommission, setSavingCommission] = useState(false);
   const [stats, setStats] = useState({ totalRevenue: 0, activeFree: 0, activePremium: 0, activeTeam: 0, totalDebt: 0 });
   const [editingCommission, setEditingCommission] = useState<string | null>(null);
   const [customCommission, setCustomCommission] = useState<number>(0);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
-  const [upgradeMenuLawyerId, setUpgradeMenuLawyerId] = useState<string | null>(null);
+
+  // New States
+  const [upgradeDays, setUpgradeDays] = useState<Record<string, number>>({});
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [newCoupon, setNewCoupon] = useState({
+    code: '',
+    discount_percent: 0,
+    max_uses: 1,
+    expires_at: '',
+    tier_target: 'pro' as 'pro' | 'team',
+  });
 
   const { list: notifList, push } = useNotifications();
 
@@ -62,8 +71,13 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
   useEffect(() => {
     if (!isAuthorized) return;
     loadLawyers();
-    loadGlobalSettings();
+    loadCoupons();
   }, [isAuthorized]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('global_commission');
+    if (saved) setGlobalCommission(Number(saved));
+  }, []);
 
   useEffect(() => {
     filterLawyers();
@@ -81,7 +95,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
       const mapped = lawyersData.map((p) => {
         return {
           ...p,
-          email: (p as any).staff_email || '',
+          email: p.email || (p as any).staff_email || '',
           commission_rate: p.commission_rate || globalCommission,
           is_frozen: p.is_frozen || false,
           commission_debt: p.commission_debt || 0,
@@ -93,18 +107,11 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
     setLoading(false);
   };
 
-  const loadGlobalSettings = async () => {
-    // In production, this would load from a global_settings table
-    // For now, use default
-    setGlobalCommission(5);
-  };
-
   const calculateStats = (lawyerList: LawyerProfile[]) => {
     const totalDebt = lawyerList.reduce((sum, l) => sum + (l.commission_debt || 0), 0);
     const activeFree = lawyerList.filter(l => l.tier === 'free' && !l.is_frozen).length;
-    const activePremium = lawyerList.filter(l => l.tier === 'premium' && !l.is_frozen).length;
+    const activePremium = lawyerList.filter(l => l.tier === 'pro' && !l.is_frozen).length;
     const activeTeam = lawyerList.filter(l => l.tier === 'team' && !l.is_frozen).length;
-    // Calculate revenue (simplified - sum of commissions owed)
     const totalRevenue = lawyerList.reduce((sum, l) => {
       return sum + (l.commission_debt || 0);
     }, 0);
@@ -136,12 +143,20 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
     setFiltered(result);
   };
 
-  const saveGlobalCommission = async () => {
-    setSavingCommission(true);
-    // In production, save to global_settings table
-    await new Promise(resolve => setTimeout(resolve, 500));
-    push(`✓ Commission rate set to ${globalCommission}%`, 'success');
-    setSavingCommission(false);
+  const saveGlobalCommission = (rate: number) => {
+    localStorage.setItem('global_commission', rate.toString());
+    setGlobalCommission(rate);
+    push('تم حفظ العمولة العامة ✅', 'success');
+  };
+
+  const saveCustomCommission = async (lawyerId: string, rate: number) => {
+    await supabase
+      .from('profiles')
+      .update({ commission_rate: rate })
+      .eq('id', lawyerId);
+    await loadLawyers();
+    setEditingCommission(null);
+    push('تم حفظ العمولة ✅', 'success');
   };
 
   const toggleFreeze = async (lawyerId: string, currentState: boolean) => {
@@ -160,92 +175,101 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
     setProcessingAction(null);
   };
 
-  const updateTier = async (lawyerId: string, newTier: string) => {
+  const upgradeTier = async (
+    lawyerId: string,
+    newTier: 'free' | 'pro' | 'team',
+    days: number = 30
+  ) => {
     setProcessingAction(lawyerId);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ tier: newTier })
-      .eq('id', lawyerId);
 
-    if (!error) {
-      setLawyers(prev => prev.map(l => l.id === lawyerId ? { ...l, tier: newTier as any } : l));
-      push(`✓ Tier updated to ${newTier}`, 'success');
-    } else {
-      push('Error updating tier', 'danger');
-    }
-    setProcessingAction(null);
-  };
+    const lawyer = lawyers.find(l => l.id === lawyerId);
+    const currentExpiry = lawyer?.expires_at
+      ? new Date(lawyer.expires_at)
+      : null;
 
-  const upgradeTier = async (lawyerId: string, newTier: 'free' | 'pro' | 'team') => {
-    setProcessingAction(lawyerId);
-    
-    // حدّث الباقة وتاريخ الانتهاء (30 يوم من دلوقتي)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
-    
+    const startDate = currentExpiry && currentExpiry > new Date()
+      ? currentExpiry
+      : new Date();
+
+    const expiresAt = new Date(startDate);
+    expiresAt.setDate(expiresAt.getDate() + days);
+
     await supabase
       .from('profiles')
-      .update({ 
-        tier: newTier === 'pro' ? 'premium' : newTier,
+      .update({
+        tier: newTier,
         expires_at: expiresAt.toISOString(),
-        is_frozen: false
+        is_frozen: false,
       })
       .eq('id', lawyerId);
 
-    // ابعت إشعار للمحامي
     await supabase.functions.invoke('send-notification', {
       body: {
         lawyerId,
         clientName: 'إدارة محكَم',
         message: `تم ترقية باقتك إلى ${
-          newTier === 'team' ? 'Team 🏆' : 
-          newTier === 'pro' ? 'pro⭐' : 'Free'
-        } لمدة 30 يوم`,
-      }
+          newTier === 'team' ? 'Team 🏆' :
+          newTier === 'pro' ? 'Pro ⭐' : 'Free'
+        } لمدة ${days} يوم`,
+      },
     });
 
-    // ابعت إيميل
-    const lawyer = lawyers.find(l => l.id === lawyerId);
     if (lawyer?.email) {
       await supabase.functions.invoke('send-email', {
         body: {
           to: lawyer.email,
           type: 'tier_upgrade',
           tierName: newTier,
-        }
+          days,
+        },
       });
     }
 
     await loadLawyers();
     setProcessingAction(null);
-    push(`تم ترقية الباقة بنجاح ✅`, 'success');
+    push(`تم ترقية الباقة لـ ${days} يوم ✅`, 'success');
   };
 
-  const saveCustomCommission = async (lawyerId: string) => {
-    setProcessingAction(lawyerId);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ commission_rate: customCommission })
-      .eq('id', lawyerId);
-
-    if (!error) {
-      setLawyers(prev => prev.map(l => l.id === lawyerId ? { ...l, commission_rate: customCommission } : l));
-      push(`✓ Custom commission rate set to ${customCommission}%`, 'success');
-    } else {
-      push('Error saving commission rate', 'danger');
-    }
-    setEditingCommission(null);
-    setProcessingAction(null);
+  const loadCoupons = async () => {
+    const { data } = await supabase
+      .from('coupons')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setCoupons(data || []);
   };
 
-  // Unauthorized — return nothing (admin panel only renders for authorized emails)
+  const createCoupon = async () => {
+    if (!newCoupon.code) return;
+    
+    await supabase.from('coupons').insert({
+      code: newCoupon.code.toUpperCase(),
+      discount_percent: newCoupon.discount_percent,
+      max_uses: newCoupon.max_uses,
+      expires_at: newCoupon.expires_at || null,
+      tier_target: newCoupon.tier_target,
+      used_count: 0,
+      is_active: true,
+    });
+    
+    await loadCoupons();
+    push(`تم إنشاء كوبون ${newCoupon.code} ✅`, 'success');
+    setNewCoupon({ 
+      code: '', discount_percent: 0, 
+      max_uses: 1, expires_at: '', tier_target: 'pro' 
+    });
+  };
+
+  const deleteCoupon = async (id: string) => {
+    await supabase.from('coupons').delete().eq('id', id);
+    await loadCoupons();
+  };
+
   if (!isAuthorized) return null;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Notification UI */}
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000 }}>
-        {/* Simplified notification display */}
         {notifList.length > 0 && (
           <div style={{ padding: '8px 16px', background: '#fff', borderBottom: '1px solid var(--border)' }}>
             {notifList.map(n => (
@@ -335,9 +359,100 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
                 style={{ width: 80, padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: "'JetBrains Mono', monospace" }}
               />
             </div>
-            <Button variant="gold" disabled={savingCommission} onClick={saveGlobalCommission}>
-              {savingCommission ? <><Spinner size={14} /> Saving...</> : <><Save size={14} /> Save</>}
+            <Button variant="gold" onClick={() => saveGlobalCommission(globalCommission)}>
+              <Save size={14} /> Save
             </Button>
+          </div>
+        </Card>
+
+        {/* Coupons Management Panel */}
+        <Card style={{ padding: 20, marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <span style={{ fontSize: 20 }}>🎟️</span>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--navy)' }}>إدارة الكوبونات</h3>
+          </div>
+          
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
+            <input 
+              placeholder="كود الكوبون (مثال: FRIEND50)"
+              value={newCoupon.code}
+              onChange={e => setNewCoupon(p => ({...p, code: e.target.value}))}
+              style={{ padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, minWidth: 200 }}
+            />
+            <input 
+              type="number" 
+              placeholder="نسبة الخصم %"
+              value={newCoupon.discount_percent || ''}
+              onChange={e => setNewCoupon(p => ({...p, discount_percent: Number(e.target.value)}))}
+              style={{ width: 120, padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14 }}
+            />
+            <input 
+              type="number" 
+              placeholder="عدد الاستخدامات"
+              value={newCoupon.max_uses || ''}
+              onChange={e => setNewCoupon(p => ({...p, max_uses: Number(e.target.value)}))}
+              style={{ width: 140, padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14 }}
+            />
+            <input 
+              type="date" 
+              placeholder="تاريخ الانتهاء"
+              value={newCoupon.expires_at}
+              onChange={e => setNewCoupon(p => ({...p, expires_at: e.target.value}))}
+              style={{ padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14 }}
+            />
+            <select 
+              value={newCoupon.tier_target}
+              onChange={e => setNewCoupon(p => ({
+                ...p, tier_target: e.target.value as 'pro' | 'team'
+              }))}
+              style={{ padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, background: '#fff' }}
+            >
+              <option value="pro">Pro</option>
+              <option value="team">Team</option>
+            </select>
+            <Button variant="gold" onClick={createCoupon}>
+              ➕ إنشاء كوبون
+            </Button>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16, minWidth: 600 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'right' }}>
+                  <th style={{ padding: 12, fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>الكود</th>
+                  <th style={{ padding: 12, fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>الخصم</th>
+                  <th style={{ padding: 12, fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>الاستخدامات</th>
+                  <th style={{ padding: 12, fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>الانتهاء</th>
+                  <th style={{ padding: 12, fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>الباقة</th>
+                  <th style={{ padding: 12, fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>حذف</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coupons.map(c => (
+                  <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: 12, fontSize: 14 }}><strong>{c.code}</strong></td>
+                    <td style={{ padding: 12, fontSize: 14 }}>{c.discount_percent}%</td>
+                    <td style={{ padding: 12, fontSize: 14 }}>{c.used_count}/{c.max_uses}</td>
+                    <td style={{ padding: 12, fontSize: 14 }}>{c.expires_at ? new Date(c.expires_at).toLocaleDateString('ar') : 'بلا حد'}</td>
+                    <td style={{ padding: 12, fontSize: 14 }}>
+                      <Badge color={c.tier_target === 'team' ? 'gold' : 'navy'}>{c.tier_target}</Badge>
+                    </td>
+                    <td style={{ padding: 12, fontSize: 14 }}>
+                      <Button size="sm" variant="ghost" onClick={() => deleteCoupon(c.id)} style={{ color: 'var(--danger)', padding: 4 }}>
+                        🗑️
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                {coupons.length === 0 && (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: 20, color: 'var(--muted)' }}>
+                      لا توجد كوبونات حالياً
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </Card>
 
@@ -414,6 +529,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
                       alignItems: 'center',
                       gap: 16,
                       opacity: lawyer.is_frozen ? 0.7 : 1,
+                      flexWrap: 'wrap'
                     }}
                   >
                     {/* Avatar */}
@@ -422,7 +538,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
                     </div>
 
                     {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {lawyer.full_name || 'Unknown'}
@@ -435,22 +551,11 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
                       </p>
                     </div>
 
-                    {/* Tier */}
-                    <div style={{ textAlign: 'center' }}>
-                      <select
-                        value={lawyer.tier}
-                        onChange={(e) => updateTier(lawyer.id, e.target.value)}
-                        disabled={processingAction === lawyer.id}
-                        style={{
-                          padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                          fontSize: 11, fontWeight: 700, background: '#fff',
-                          cursor: processingAction === lawyer.id ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        <option value="free">Free</option>
-                        <option value="premium">Pro</option>
-                        <option value="team">Team</option>
-                      </select>
+                    {/* Current Tier Badge */}
+                    <div style={{ minWidth: 80, textAlign: 'center' }}>
+                      <Badge color={lawyer.tier === 'team' ? 'gold' : lawyer.tier === 'pro' ? 'navy' : 'default'}>
+                        {lawyer.tier === 'team' ? 'Team 🏆' : lawyer.tier === 'pro' ? 'Pro ⭐' : 'Free'}
+                      </Badge>
                     </div>
 
                     {/* Commission Rate */}
@@ -465,7 +570,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
                             max={100}
                             style={{ width: 50, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 11 }}
                           />
-                          <Button size="sm" variant="gold" onClick={() => saveCustomCommission(lawyer.id)}><Check size={10} /></Button>
+                          <Button size="sm" variant="gold" onClick={() => saveCustomCommission(lawyer.id, customCommission)}><Check size={10} /></Button>
                           <Button size="sm" variant="ghost" onClick={() => setEditingCommission(null)}><X size={10} /></Button>
                         </div>
                       ) : (
@@ -486,58 +591,49 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
                       </p>
                     </div>
 
-                    {/* Upgrade Tier Button */}
-                    <div style={{ position: 'relative' }}>
-                      <Button
+                    {/* Adjustable Package Upgrade Days & Actions */}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={upgradeDays[lawyer.id] ?? 30}
+                        onChange={(e) => setUpgradeDays(prev => ({
+                          ...prev,
+                          [lawyer.id]: Number(e.target.value)
+                        }))}
+                        style={{ width: 60, padding: '4px 8px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 12, textAlign: 'center' }}
+                      />
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>يوم</span>
+                      <Button 
                         size="sm"
                         variant="gold"
-                        onClick={() => setUpgradeMenuLawyerId(upgradeMenuLawyerId === lawyer.id ? null : lawyer.id)}
+                        onClick={() => upgradeTier(
+                          lawyer.id, 'pro', upgradeDays[lawyer.id] ?? 30
+                        )}
                         disabled={processingAction === lawyer.id}
                       >
-                        <Crown size={14} /> ترقية الباقة
+                        ⭐ Pro
                       </Button>
-                      {upgradeMenuLawyerId === lawyer.id && (
-                        <div style={{
-                          position: 'absolute',
-                          bottom: '100%',
-                          right: 0,
-                          marginBottom: 8,
-                          background: '#fff',
-                          border: '1.5px solid var(--border)',
-                          borderRadius: 8,
-                          boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                          zIndex: 10,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          minWidth: 140,
-                          overflow: 'hidden'
-                        }}>
-                          <button
-                            onClick={() => { upgradeTier(lawyer.id, 'free'); setUpgradeMenuLawyerId(null); }}
-                            style={{ padding: '8px 16px', background: 'none', border: 'none', textAlign: 'right', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
-                          >
-                            Free (مجانية)
-                          </button>
-                          <button
-                            onClick={() => { upgradeTier(lawyer.id, 'pro'); setUpgradeMenuLawyerId(null); }}
-                            style={{ padding: '8px 16px', background: 'none', border: 'none', textAlign: 'right', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
-                          >
-                            Pro⭐ (محترف)
-                          </button>
-                          <button
-                            onClick={() => { upgradeTier(lawyer.id, 'team'); setUpgradeMenuLawyerId(null); }}
-                            style={{ padding: '8px 16px', background: 'none', border: 'none', textAlign: 'right', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text)' }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
-                          >
-                            Team 🏆 (فريق)
-                          </button>
-                        </div>
-                      )}
+                      <Button 
+                        size="sm"
+                        variant="primary"
+                        onClick={() => upgradeTier(
+                          lawyer.id, 'team', upgradeDays[lawyer.id] ?? 30
+                        )}
+                        disabled={processingAction === lawyer.id}
+                      >
+                        🏆 Team
+                      </Button>
+                      <Button 
+                        size="sm"
+                        variant="ghost"
+                        style={{ border: '1px solid var(--border)' }}
+                        onClick={() => upgradeTier(lawyer.id, 'free', 0)}
+                        disabled={processingAction === lawyer.id}
+                      >
+                        رجوع Free
+                      </Button>
                     </div>
 
                     {/* Freeze/Unfreeze Button */}
