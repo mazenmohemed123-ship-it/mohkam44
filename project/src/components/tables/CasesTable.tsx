@@ -44,7 +44,7 @@ export function CasesTable({
   onArchive,
   onDeleteCase,
 }: CasesTableProps) {
-  const { canDeleteCase, tier, profile } = useRole();
+  const { tier, profile } = useRole();
   const [editingCell, setEditingCell] = useState<{ rowId: string; colKey: string } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [addColName, setAddColName] = useState('');

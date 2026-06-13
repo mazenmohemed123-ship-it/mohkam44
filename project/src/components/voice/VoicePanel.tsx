@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Type, X, RefreshCw, Save, AlertCircle } from 'lucide-react';
 import { Button, Field, Modal, Spinner } from '../atoms';
 import { supabase, sendPushToClient } from '../../services/supabase';
-import { detectIntent, type ParsedVoice } from '../../services/voiceParser';
+import { detectIntent, extractCaseData, type ParsedVoice } from '../../services/voiceParser';
 import { sanitize } from '../../services/sanitize';
 import { isCaseCreationBlocked } from '../../services/caseQuotas';
 import { useRole } from '../../context/RoleContext';
@@ -88,9 +88,22 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
 
   const process = (text: string) => {
     recRef.current?.stop();
-    const r = detectIntent(text, cases);
+    const parsed = extractCaseData(transcript, voiceLang);
+    const activeParsed = text === transcript ? parsed : extractCaseData(text, voiceLang);
+
+    const r = detectIntent(text, cases, voiceLang);
     setResult(r);
-    const merged = r.existing ? { ...r.existing, ...r.parsed } : r.parsed;
+    const parsedObj: ParsedVoice = {
+      client_name: activeParsed.client_name || '',
+      case_number: activeParsed.case_number || '',
+      case_type: activeParsed.case_type || '',
+      judgment: activeParsed.judgment || '',
+      total_fees: activeParsed.total_fees ? String(activeParsed.total_fees) : '',
+      admin_fees: activeParsed.admin_fees ? String(activeParsed.admin_fees) : '',
+      client_phone: activeParsed.client_phone || '',
+      raw: text,
+    };
+    const merged = r.existing ? { ...r.existing, ...parsedObj } : parsedObj;
     setFields({ ...merged, case_number: merged.case_number || 'MHK-' + Date.now().toString().slice(-5) });
     setMode('preview');
   };

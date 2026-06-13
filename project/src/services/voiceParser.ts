@@ -9,68 +9,172 @@ export interface ParsedVoice {
   raw: string;
 }
 
-export function parseVoice(text: string): ParsedVoice {
-  const t = text.trim();
-  const out: ParsedVoice = {
-    client_name: '',
-    case_number: '',
-    case_type: '',
-    judgment: '',
-    total_fees: '',
-    admin_fees: '',
-    client_phone: '',
-    raw: t,
+export const extractCaseData = (text: string, lang: string) => {
+  const data: any = {};
+  const t = text.toLowerCase().trim();
+
+  if (lang.startsWith('ar')) {
+    // اسم الموكل — طرق متعددة
+    const nameMatch = t.match(
+      /(?:اسم(?:ه|ها|ي|المتهم|المدعي|الموكل)?[\s:]+|موكل(?:ي|ه)?[\s:]+|المتهم[\s:]+|المدعي[\s:]+)([^\s,،.]+(?:\s[^\s,،.]+)?)/
+    );
+    // رقم القضية
+    const caseMatch = t.match(
+      /(?:قضية|رقم القضية|ملف|القضية رقم|رقم|ملف رقم)[\s:#]+([0-9]+)/
+    );
+    // الأتعاب
+    const feesMatch = t.match(
+      /(?:أتعاب|الأتعاب|مبلغ|التعاب|المبلغ)[\s:]+([0-9]+)/
+    );
+    // المصاريف
+    const adminMatch = t.match(
+      /(?:مصاريف|المصاريف|رسوم|الرسوم)[\s:]+([0-9]+)/
+    );
+    // نوع القضية
+    const typeMatch = t.match(
+      /(?:نوع(?:ها|ه)?|القضية من نوع|قضية)[\s:]+([^\s,،.]+(?:\s[^\s,،.]+)?)/
+    );
+    // رقم الهاتف
+    const phoneMatch = t.match(
+      /(?:رقم(?:ه|ها)?|تليفون|موبايل|هاتف)[\s:]+([0-9]{10,11})/
+    );
+    // الحكم
+    const judgmentMatch = t.match(
+      /(?:الحكم|حكم|النتيجة)[\s:]+([^\s,،.]+(?:\s[^\s,،.]+)?)/
+    );
+
+    if (nameMatch) data.client_name = nameMatch[1];
+    if (caseMatch) data.case_number = caseMatch[1];
+    if (feesMatch) data.total_fees = Number(feesMatch[1]);
+    if (adminMatch) data.admin_fees = Number(adminMatch[1]);
+    if (typeMatch) data.case_type = typeMatch[1];
+    if (phoneMatch) data.client_phone = phoneMatch[1];
+    if (judgmentMatch) data.judgment = judgmentMatch[1];
+  }
+
+  if (lang === 'en') {
+    const nameMatch = t.match(
+      /(?:name(?:\s+is)?|client(?:\s+is)?|defendant|plaintiff)[\s:]+([a-z]+(?:\s[a-z]+)?)/i
+    );
+    const caseMatch = t.match(
+      /(?:case\s*(?:number|no|#)?|file\s*(?:number|no|#)?)[\s:]+([0-9]+)/i
+    );
+    const feesMatch = t.match(
+      /(?:fees?|amount|total)[\s:]+([0-9]+)/i
+    );
+    const phoneMatch = t.match(
+      /(?:phone|mobile|number)[\s:]+([0-9]{10,11})/i
+    );
+    const typeMatch = t.match(
+      /(?:type(?:\s+is)?|case\s+type)[\s:]+([a-z]+(?:\s[a-z]+)?)/i
+    );
+
+    if (nameMatch) data.client_name = nameMatch[1];
+    if (caseMatch) data.case_number = caseMatch[1];
+    if (feesMatch) data.total_fees = Number(feesMatch[1]);
+    if (phoneMatch) data.client_phone = phoneMatch[1];
+    if (typeMatch) data.case_type = typeMatch[1];
+  }
+
+  if (lang === 'fr') {
+    const nameMatch = t.match(
+      /(?:nom(?:\s+est)?|client(?:\s+est)?|défendeur|demandeur)[\s:]+([a-zÀ-ÿ]+(?:\s[a-zÀ-ÿ]+)?)/i
+    );
+    const caseMatch = t.match(
+      /(?:dossier|affaire|numéro?(?:\s+de\s+dossier)?)[\s:#]+([0-9]+)/i
+    );
+    const feesMatch = t.match(
+      /(?:honoraires?|frais|montant)[\s:]+([0-9]+)/i
+    );
+    const phoneMatch = t.match(
+      /(?:téléphone|mobile|numéro)[\s:]+([0-9]{10,11})/i
+    );
+
+    if (nameMatch) data.client_name = nameMatch[1];
+    if (caseMatch) data.case_number = caseMatch[1];
+    if (feesMatch) data.total_fees = Number(feesMatch[1]);
+    if (phoneMatch) data.client_phone = phoneMatch[1];
+  }
+
+  if (lang === 'tr') {
+    const nameMatch = t.match(
+      /(?:isim(?:\s+is)?|müvekkil|sanık|davacı)[\s:]+([a-zÇĞİÖŞÜçğışöşü]+(?:\s[a-zÇĞİÖŞÜ]+)?)/i
+    );
+    const caseMatch = t.match(
+      /(?:dava\s*(?:numarası|no)?|dosya\s*(?:numarası|no)?)[\s:#]+([0-9]+)/i
+    );
+    const feesMatch = t.match(
+      /(?:ücret|miktar|tutar)[\s:]+([0-9]+)/i
+    );
+
+    if (nameMatch) data.client_name = nameMatch[1];
+    if (caseMatch) data.case_number = caseMatch[1];
+    if (feesMatch) data.total_fees = Number(feesMatch[1]);
+  }
+
+  if (lang === 'it') {
+    const nameMatch = t.match(
+      /(?:nome(?:\s+è)?|cliente|imputato|attore)[\s:]+([a-zÀ-ÿ]+(?:\s[a-zÀ-ÿ]+)?)/i
+    );
+    const caseMatch = t.match(
+      /(?:caso|fascicolo|numero\s*(?:del\s*caso)?)[\s:#]+([0-9]+)/i
+    );
+    const feesMatch = t.match(
+      /(?:onorario|compenso|importo)[\s:]+([0-9]+)/i
+    );
+
+    if (nameMatch) data.client_name = nameMatch[1];
+    if (caseMatch) data.case_number = caseMatch[1];
+    if (feesMatch) data.total_fees = Number(feesMatch[1]);
+  }
+
+  if (lang === 'es') {
+    const nameMatch = t.match(
+      /(?:nombre(?:\s+es)?|cliente|demandado|demandante)[\s:]+([a-záéíóúñ]+(?:\s[a-záéíóúñ]+)?)/i
+    );
+    const caseMatch = t.match(
+      /(?:caso|expediente|número\s*(?:de\s*caso)?)[\s:#]+([0-9]+)/i
+    );
+    const feesMatch = t.match(
+      /(?:honorarios?|monto|cantidad)[\s:]+([0-9]+)/i
+    );
+
+    if (nameMatch) data.client_name = nameMatch[1];
+    if (caseMatch) data.case_number = caseMatch[1];
+    if (feesMatch) data.total_fees = Number(feesMatch[1]);
+  }
+
+  if (lang === 'de') {
+    const nameMatch = t.match(
+      /(?:name(?:\s+ist)?|mandant|beklagter|kläger)[\s:]+([a-zäöüß]+(?:\s[a-zäöüß]+)?)/i
+    );
+    const caseMatch = t.match(
+      /(?:fall|akte|nummer\s*(?:des\s*falls)?)[\s:#]+([0-9]+)/i
+    );
+    const feesMatch = t.match(
+      /(?:honorar|betrag|kosten)[\s:]+([0-9]+)/i
+    );
+
+    if (nameMatch) data.client_name = nameMatch[1];
+    if (caseMatch) data.case_number = caseMatch[1];
+    if (feesMatch) data.total_fees = Number(feesMatch[1]);
+  }
+
+  return data;
+};
+
+export function parseVoice(text: string, lang: string = 'ar'): ParsedVoice {
+  const parsed = extractCaseData(text, lang);
+  return {
+    client_name: parsed.client_name || '',
+    case_number: parsed.case_number || '',
+    case_type: parsed.case_type || '',
+    judgment: parsed.judgment || '',
+    total_fees: parsed.total_fees ? String(parsed.total_fees) : '',
+    admin_fees: parsed.admin_fees ? String(parsed.admin_fees) : '',
+    client_phone: parsed.client_phone || '',
+    raw: text,
   };
-
-  // Global phone regex: matches international formats with + prefix or local numbers
-  const phone = t.match(/(\+?\d{1,3}[\s\-]?)?[\d\s\-]{7,15}/);
-  if (phone) out.client_phone = phone[0].replace(/[\s\-]/g, '');
-
-  const caseNum =
-    t.match(/(?:رقم|قضية|قضيه|ملف)[\s:#\-]*(\d{4,})/i) || t.match(/\b(\d{4,10})\b/);
-  if (caseNum) out.case_number = caseNum[1];
-
-  const feeRx = /(\d[\d,\.]*)\s*(جنيه|جنية|EGP|ج)/gi;
-  const fees: { val: number; ctx: string }[] = [];
-  let m;
-  while ((m = feeRx.exec(t)) !== null) {
-    fees.push({
-      val: parseFloat(m[1].replace(/,/g, '')),
-      ctx: t.slice(Math.max(0, m.index - 25), m.index + 35),
-    });
-  }
-
-  fees.forEach((f) => {
-    if (/مصاريف|إداري|ادار|مصروف/.test(f.ctx)) out.admin_fees = String(f.val);
-    else if (/اتعاب|أتعاب|رسوم|اجر|أجر/.test(f.ctx)) out.total_fees = String(f.val);
-    else if (!out.total_fees) out.total_fees = String(f.val);
-    else if (!out.admin_fees) out.admin_fees = String(f.val);
-  });
-
-  const nameM = t.match(/(?:قضية|قضيه|ملف|موكل)\s+([\u0600-\u06FF\s]{3,30}?)(?:\s+رقم|\s+\d|$)/i);
-  if (nameM) out.client_name = nameM[1].trim().replace(/\s+/g, ' ');
-
-  for (const w of [
-    'براءة', 'براءه', 'بريء', 'إدانة', 'ادانة',
-    'حبس', 'غرامة', 'تأجيل', 'قيد الانتظار', 'انتظار',
-  ]) {
-    if (t.includes(w)) {
-      out.judgment = w;
-      break;
-    }
-  }
-
-  for (const tp of [
-    'جنايات', 'جنح', 'مدني', 'أحوال شخصية', 'تجاري',
-    'إداري', 'عمالي', 'عقاري', 'تأمين', 'ضرائب',
-  ]) {
-    if (t.includes(tp)) {
-      out.case_type = tp;
-      break;
-    }
-  }
-
-  return out;
 }
 
 export interface DetectedIntent {
@@ -79,22 +183,26 @@ export interface DetectedIntent {
   parsed: ParsedVoice;
 }
 
-export function detectIntent(text: string, existingCases: any[]): DetectedIntent {
-  const t = text.trim();
-  const caseNum =
-    t.match(/(?:رقم|قضية|قضيه)[\s:#\-]*(\d{4,})/i)?.[1] ||
-    t.match(/\b(\d{4,10})\b/)?.[1];
-  const nameM = t.match(/(?:قضية|قضيه|موكل)\s+([\u0600-\u06FF\s]{3,25}?)/i)?.[1]?.trim();
-
-  const byNum = caseNum ? existingCases.find((c) => c.case_number === caseNum) : null;
-  const byName = nameM
-    ? existingCases.find((c) => c.client_name?.includes(nameM.split(' ')[0]))
+export function detectIntent(text: string, existingCases: any[], lang: string = 'ar'): DetectedIntent {
+  const parsed = extractCaseData(text, lang);
+  const byNum = parsed.case_number ? existingCases.find((c) => String(c.case_number) === String(parsed.case_number)) : null;
+  const byName = parsed.client_name
+    ? existingCases.find((c) => c.client_name?.toLowerCase().includes(parsed.client_name.toLowerCase().split(' ')[0]))
     : null;
   const existing = byNum || byName;
 
   return {
     type: existing ? 'update' : 'new',
     existing,
-    parsed: parseVoice(text),
+    parsed: {
+      client_name: parsed.client_name || '',
+      case_number: parsed.case_number || '',
+      case_type: parsed.case_type || '',
+      judgment: parsed.judgment || '',
+      total_fees: parsed.total_fees ? String(parsed.total_fees) : '',
+      admin_fees: parsed.admin_fees ? String(parsed.admin_fees) : '',
+      client_phone: parsed.client_phone || '',
+      raw: text,
+    },
   };
 }
