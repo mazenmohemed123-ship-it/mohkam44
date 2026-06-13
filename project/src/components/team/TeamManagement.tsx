@@ -21,6 +21,7 @@ interface StaffMember {
 
 interface TeamManagementProps {
   masterLawyerId: string;
+  tier: string;
   push: (msg: string, type: 'success' | 'warning' | 'danger') => void;
 }
 
@@ -41,7 +42,7 @@ const PERMISSIONS = [
   { key: 'can_reply_client_chats', label: 'الرد على شات الموكلين', description: 'إرسال رسائل في محادثات القضايا' },
 ] as const;
 
-export function TeamManagement({ masterLawyerId, push }: TeamManagementProps) {
+export function TeamManagement({ masterLawyerId, tier, push }: TeamManagementProps) {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -75,6 +76,10 @@ export function TeamManagement({ masterLawyerId, push }: TeamManagementProps) {
   };
 
   const handleAddStaff = async () => {
+    if (tier !== 'team') {
+      push('إضافة أعضاء الفريق متاحة في باقة Team فقط 🏆', 'warning');
+      return;
+    }
     if (staff.length >= FIRM_CAP) {
       push(`⚠️ تم بلوغ الحد الأقصى (${FIRM_CAP} أعضاء). قم بالترقية لإضافة المزيد.`, 'warning');
       return;
@@ -203,7 +208,13 @@ export function TeamManagement({ masterLawyerId, push }: TeamManagementProps) {
             {staff.length}/{FIRM_CAP} عضو في الفريق
           </p>
         </div>
-        <Button variant="gold" onClick={() => setShowAddForm(!showAddForm)} disabled={staff.length >= FIRM_CAP} style={{ opacity: staff.length >= FIRM_CAP ? 0.5 : 1 }}>
+        <Button variant="gold" onClick={() => {
+          if (tier !== 'team') {
+            push('إضافة أعضاء الفريق متاحة في باقة Team فقط 🏆', 'warning');
+            return;
+          }
+          setShowAddForm(!showAddForm);
+        }} disabled={staff.length >= FIRM_CAP} style={{ opacity: staff.length >= FIRM_CAP ? 0.5 : 1 }}>
           <UserPlus size={14} /> {staff.length >= FIRM_CAP ? 'تم بلوغ الحد' : 'إضافة عضو'}
         </Button>
       </div>

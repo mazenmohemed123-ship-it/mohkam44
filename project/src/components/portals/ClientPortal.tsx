@@ -860,8 +860,16 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
     // Tier-based quota check for file uploads
     if (attachment && selectedCase) {
-      const fileSizeMB = attachment.size / (1024 * 1024);
+      if (lawyerTier === 'free') {
+        push('مفيش رفع صور أو ملفات في الباقة المجانية للمحامي ⚠️', 'warning');
+        return;
+      }
       const dailyCount = await getDailyChatUploadCount(selectedCase.id, lawyerInfo?.id || '');
+      if (lawyerTier === 'pro' && dailyCount >= 30) {
+        push('وصلت لحد الصور اليومي للمحامي', 'warning');
+        return;
+      }
+      const fileSizeMB = attachment.size / (1024 * 1024);
       const quotaCheck = checkChatUploadQuota(lawyerProfile?.tier || 'free', dailyCount, fileSizeMB);
       if (!quotaCheck.allowed) {
         setQuotaWarning(quotaCheck.reason || 'تم تجاوز الحد');
@@ -1084,6 +1092,10 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   };
 
   const selectStaffChat = async (member: TeamMember) => {
+    if (lawyerTier === 'free') {
+      push('المحادثة المباشرة مع الموكلين غير مفعلة في باقة المحامي الحالية 🏆', 'warning');
+      return;
+    }
     setActiveChatTarget('staff');
     setActiveChatLabel(member.full_name);
     setShowChatDropdown(false);
@@ -1096,6 +1108,10 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   };
 
   const selectLawyerDirect = async () => {
+    if (lawyerTier === 'free') {
+      push('المحادثة المباشرة مع الموكلين غير مفعلة في باقة المحامي الحالية 🏆', 'warning');
+      return;
+    }
     setActiveChatTarget('lawyer');
     setActiveChatLabel(LAWYER_NAME);
     setShowChatDropdown(false);
@@ -1305,7 +1321,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
                       );
                     })}
 
-                    {/* Free/Premium tiers - Direct lawyer chat */}
+                    {/* Free/Pro tiers - Direct lawyer chat */}
                     {lawyerTier !== 'team' && (
                       <button onClick={selectLawyerDirect} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', background: 'transparent', cursor: 'pointer', width: '100%', textAlign: 'right', transition: 'background .15s', fontFamily: "'Cairo',sans-serif" }}>
                         <span style={{ fontSize: 18 }}>👨‍⚖️</span><span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{LAWYER_NAME}</span>
@@ -1637,6 +1653,27 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
             <p style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>سيتواصل معك {LAWYER_NAME} في أقرب وقت</p>
           </div>
         ))}
+
+        {/* Technical Support */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+          <a
+            href="mailto:mazenmohemed123@gmail.com"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: '#2563eb',
+              color: 'white',
+              padding: '10px 16px',
+              borderRadius: 8,
+              textDecoration: 'none',
+              fontWeight: 'bold',
+            }}
+          >
+            <span>📧</span>
+            <span>الدعم الفني</span>
+          </a>
+        </div>
       </main>
 
       {/* Emergency Modal */}

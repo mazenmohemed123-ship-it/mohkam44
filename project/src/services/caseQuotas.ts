@@ -1,19 +1,26 @@
 import type { Tier } from '../context/RoleContext';
 
+export const getCaseLimit = (tier: string): number => {
+  if (tier === 'free') return 5;
+  if (tier === 'pro') return 999;
+  if (tier === 'team') return 999;
+  return 5;
+};
+
 export const TIER_CASE_LIMITS: Record<Tier, number> = {
   free: 5,
-  pro: 15,
-  team: Infinity,
+  pro: 999,
+  team: 999,
 };
 
 export function isCaseCreationBlocked(tier: Tier, currentCaseCount: number): boolean {
-  const limit = TIER_CASE_LIMITS[tier];
-  if (limit === Infinity) return false;
+  const limit = getCaseLimit(tier);
   return currentCaseCount >= limit;
 }
 
 export function getCaseLimitLabel(tier: Tier, lang: 'ar' | 'en' = 'ar'): string {
-  const limit = TIER_CASE_LIMITS[tier];
-  if (limit === Infinity) return lang === 'ar' ? 'غير محدود' : 'Unlimited';
+  const limit = getCaseLimit(tier);
+  if (limit >= 999) return lang === 'ar' ? 'غير محدود' : 'Unlimited';
   return String(limit);
 }
+

@@ -8,9 +8,27 @@ export interface ChatQuota {
 }
 
 export const TIER_CHAT_QUOTAS: Record<Tier, ChatQuota> = {
-  free: { maxImagesPerDay: 10, maxFileSizeMB: 50, isUnlimited: false },
+  free: { maxImagesPerDay: 0, maxFileSizeMB: 0, isUnlimited: false },
   pro: { maxImagesPerDay: 30, maxFileSizeMB: 100, isUnlimited: false },
-  team: { maxImagesPerDay: Infinity, maxFileSizeMB: Infinity, isUnlimited: true },
+  team: { maxImagesPerDay: 999, maxFileSizeMB: 999, isUnlimited: true },
+};
+
+export const canAccessChat = (tier: string) => {
+  return tier === 'pro' || tier === 'team';
+};
+
+export const getDailyImageLimit = (tier: string) => {
+  if (tier === 'free') return 0;
+  if (tier === 'pro') return 30;
+  if (tier === 'team') return 999;
+  return 0;
+};
+
+export const getStorageLimit = (tier: string) => {
+  if (tier === 'free') return 0;
+  if (tier === 'pro') return 100 * 1024 * 1024; // 100MB
+  if (tier === 'team') return 999 * 1024 * 1024; // unlimited
+  return 0;
 };
 
 export async function getDailyChatUploadCount(caseId: string, _lawyerId?: string): Promise<number> {
@@ -32,21 +50,26 @@ export function checkChatUploadQuota(
   currentUploadCount: number,
   fileSizeMB: number,
 ): { allowed: boolean; reason?: string } {
-  const quota = TIER_CHAT_QUOTAS[tier];
-
-  if (quota.isUnlimited) return { allowed: true };
-
-  if (currentUploadCount >= quota.maxImagesPerDay) {
+  if (tier === 'free') {
     return {
       allowed: false,
-      reason: `تم الوصول للحد اليومي (${quota.maxImagesPerDay} صورة/ملف). قم بالترقية لمزيد.`,
+      reason: 'رفع الصور والملفات غير متاح في الباقة المجانية. يرجى الترقية.',
     };
   }
 
-  if (fileSizeMB > quota.maxFileSizeMB) {
+  const dailyLimit = getDailyImageLimit(tier);
+  if (currentUploadCount >= dailyLimit) {
     return {
       allowed: false,
-      reason: `حجم الملف يتجاوز الحد (${quota.maxFileSizeMB} ميجابايت).`,
+      reason: `وصلت لحد الصور اليومي (${dailyLimit} صورة/ملف). قم بالترقية لمزيد.`,
+    };
+  }
+
+  const storageLimitMB = getStorageLimit(tier) / (1024 * 1024);
+  if (fileSizeMB > storageLimitMB) {
+    return {
+      allowed: false,
+      reason: `حجم الملف يتجاوز الحد (${storageLimitMB} ميجابايت).`,
     };
   }
 

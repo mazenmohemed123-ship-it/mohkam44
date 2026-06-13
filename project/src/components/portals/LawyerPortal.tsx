@@ -14,7 +14,8 @@ import { useRole, type Profile } from '../../context/RoleContext';
 import { useCase } from '../../context/CaseContext';
 import { supabase, registerPush } from '../../services/supabase';
 import { sanitize } from '../../services/sanitize';
-import { isCaseCreationBlocked, TIER_CASE_LIMITS } from '../../services/caseQuotas';
+import { isCaseCreationBlocked } from '../../services/caseQuotas';
+import { canAccessChat } from '../../services/chatQuotas';
 import { CURRENCIES, formatCurrency, type CurrencyCode } from '../../services/currency';
 
 const DEFAULT_COLS = [
@@ -278,9 +279,8 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   }, [appointments]);
 
   const handleAddEmptyCase = async () => {
-    if (isFreeTierLocked) {
-      const limit = TIER_CASE_LIMITS[tier];
-      push(`⚠️ تم الوصول للحد الأقصى (${limit === Infinity ? '∞' : limit} قضية) - قم بالترقية لإضافة المزيد`, 'warning');
+    if (profile.tier === 'free' && cases.length >= 5) {
+      push('وصلت للحد الأقصى — اشترك في Pro', 'warning');
       return;
     }
     const payload = {
@@ -654,9 +654,18 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
         )}
 
         {tab === 'chat' && canViewChat && (
-          <div style={{ height: 'calc(100vh - 200px)' }}>
-            <RealtimeChat cases={cases} userId={user.id} push={push} userEmail={user.email} />
-          </div>
+          !canAccessChat(tier) ? (
+            <Card style={{ padding: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#F5F8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>💬</div>
+              <h3 style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 16 }}>المحادثة المباشرة مع الموكلين</h3>
+              <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 400, lineHeight: 1.6 }}>ميزة الدردشة مع الموكلين في الوقت الفعلي غير متوفرة في باقتك الحالية. اشترك في Pro أو Team للدردشة مع موكليك مباشرة.</p>
+              <Button variant="gold" onClick={() => setTab('sub')}>👑 ترقية الباقة الآن</Button>
+            </Card>
+          ) : (
+            <div style={{ height: 'calc(100vh - 200px)' }}>
+              <RealtimeChat cases={cases} userId={user.id} push={push} userEmail={user.email} />
+            </div>
+          )
         )}
 
         {tab === 'timeline' && canViewCaseDetails && selectedCase && (
@@ -688,6 +697,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
             {isMasterLawyer && (
               <TeamManagement
                 masterLawyerId={user.id}
+                tier={tier}
                 push={push}
               />
             )}
@@ -1210,6 +1220,27 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
               </div>
               <p style={{ fontSize: 10, color: 'var(--muted)' }}>عند دخول موكل عبر هذا الرابط وباقتك Team، يمكنه اختيار عضو الفريق للتواصل معه</p>
             </Card>
+
+            {/* Technical Support */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+              <a
+                href="mailto:mazenmohemed123@gmail.com"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: '#2563eb',
+                  color: 'white',
+                  padding: '10px 16px',
+                  borderRadius: 8,
+                  textDecoration: 'none',
+                  fontWeight: 'bold',
+                }}
+              >
+                <span>📧</span>
+                <span>الدعم الفني</span>
+              </a>
+            </div>
           </div>
         )}
       </main>

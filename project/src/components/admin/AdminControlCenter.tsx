@@ -39,7 +39,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [globalCommission, setGlobalCommission] = useState(5);
-  const [stats, setStats] = useState({ totalRevenue: 0, activeFree: 0, activePremium: 0, activeTeam: 0, totalDebt: 0 });
+  const [stats, setStats] = useState({ totalRevenue: 0, activeFree: 0, activePro: 0, activeTeam: 0, totalDebt: 0 });
   const [editingCommission, setEditingCommission] = useState<string | null>(null);
   const [customCommission, setCustomCommission] = useState<number>(0);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
@@ -110,12 +110,12 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
   const calculateStats = (lawyerList: LawyerProfile[]) => {
     const totalDebt = lawyerList.reduce((sum, l) => sum + (l.commission_debt || 0), 0);
     const activeFree = lawyerList.filter(l => l.tier === 'free' && !l.is_frozen).length;
-    const activePremium = lawyerList.filter(l => l.tier === 'pro' && !l.is_frozen).length;
+    const activePro = lawyerList.filter(l => l.tier === 'pro' && !l.is_frozen).length;
     const activeTeam = lawyerList.filter(l => l.tier === 'team' && !l.is_frozen).length;
     const totalRevenue = lawyerList.reduce((sum, l) => {
       return sum + (l.commission_debt || 0);
     }, 0);
-    setStats({ totalRevenue, activeFree, activePremium, activeTeam, totalDebt });
+    setStats({ totalRevenue, activeFree, activePro, activeTeam, totalDebt });
   };
 
   const filterLawyers = () => {
@@ -329,7 +329,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
               <Crown size={20} color="var(--navy)" />
               <span style={{ fontSize: 12, color: '#666', fontWeight: 700 }}>Pro Tier</span>
             </div>
-            <p style={{ fontSize: 28, fontWeight: 900, color: 'var(--navy)' }}>{stats.activePremium}</p>
+            <p style={{ fontSize: 28, fontWeight: 900, color: 'var(--navy)' }}>{stats.activePro}</p>
           </Card>
           <Card style={{ padding: 20, background: '#FDF4E7' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>

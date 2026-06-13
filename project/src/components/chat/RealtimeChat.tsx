@@ -225,8 +225,16 @@ export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatPro
     let attachmentType: string | undefined;
 
     if (attachment) {
-      const fileSizeMB = attachment.size / (1024 * 1024);
+      if (tier === 'free') {
+        push('رفع الصور والملفات غير متاح في الباقة المجانية. يرجى الترقية.', 'warning');
+        return;
+      }
       const dailyCount = await getDailyChatUploadCount(selectedCase.id, userId);
+      if (tier === 'pro' && dailyCount >= 30) {
+        push('وصلت لحد الصور اليومي', 'warning');
+        return;
+      }
+      const fileSizeMB = attachment.size / (1024 * 1024);
       const quotaCheck = checkChatUploadQuota(tier, dailyCount, fileSizeMB);
       if (!quotaCheck.allowed) {
         setQuotaWarning(quotaCheck.reason || 'تم تجاوز الحد');
