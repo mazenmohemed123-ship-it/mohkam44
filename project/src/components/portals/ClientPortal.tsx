@@ -10,6 +10,7 @@ import { sanitize, sanitizeLike } from '../../services/sanitize';
 import { useCase } from '../../context/CaseContext';
 import type { Profile } from '../../context/RoleContext';
 import { formatCurrency, type CurrencyCode } from '../../services/currency';
+import { v4 as uuidv4 } from 'uuid';
 
 
 interface ClientPortalProps {
@@ -811,6 +812,8 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   };
 
   const send = async (attachment?: File) => {
+    const msgKey = `${user.id}-${Date.now()}`;
+    console.log('Sending message with key:', msgKey);
     if (isSendingMsg.current) return;
     if (!input.trim() && !attachment) return;
     const { allowed, cooldownSeconds } = checkFloodLimit();
@@ -880,6 +883,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       // لما تبعت رسالة — متضيفش للـ state يدوياً
       // سيب الـ Realtime subscription هو اللي يضيفها
       const { error: insertErr } = await supabase.from('messages').insert([{
+        id: uuidv4(),
         case_id: selectedCase.id,
         sender_id: user.id,
         sender_role: 'client',

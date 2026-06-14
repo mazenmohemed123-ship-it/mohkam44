@@ -6,6 +6,7 @@ import { supabase } from '../../services/supabase';
 import { checkFloodLimit } from '../../services/floodProtection';
 import { checkChatUploadQuota, getDailyChatUploadCount } from '../../services/chatQuotas';
 import { useRole } from '../../context/RoleContext';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Message {
   id: string;
@@ -211,6 +212,8 @@ export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatPro
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
   const sendMessage = useCallback(async (attachment?: File) => {
+    const msgKey = `${userId}-${Date.now()}`;
+    console.log('Sending message with key:', msgKey);
     if (!input.trim() && !attachment) return;
     if (!selectedCase) return;
     if (input.length > MAX_MSG_LEN) { push('⚠️ الرسالة طويلة جداً', 'warning'); return; }
@@ -255,6 +258,7 @@ export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatPro
 
     const safeInput = sanitize(input);
     const { error } = await supabase.from('messages').insert([{
+      id: uuidv4(),
       case_id: selectedCase.id,
       sender_id: userId,
       sender_role: activeRole,
