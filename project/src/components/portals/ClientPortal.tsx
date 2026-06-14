@@ -646,57 +646,78 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     fetchPayments();
   }, [selectedCase?.id]);
 
-  /* Fetch initial messages when case is selected */
-  useEffect(() => {
-    if (!selectedCase) return;
-
-    const fetchMessages = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('case_id', selectedCase.id)
-          .neq('room_type', 'internal_team_chat')
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-
-        if (data) {
-          const mapped = data.map((msg) => {
-            const isSystemMessage = msg.message_text?.startsWith('【') || msg.sender_role === 'system';
-            const matchedMember = teamMembers.find(m => m.id === msg.sender_id);
-            const senderName = matchedMember ? matchedMember.full_name : '';
-            return {
-              id: msg.id,
-              from: (msg.sender_id === user.id
-                ? 'user'
-                : isSystemMessage
-                  ? 'system'
-                  : ['owner', 'partner', 'lawyer'].includes(msg.sender_role || '')
-                    ? 'lawyer'
-                    : ['assistant', 'secretary', 'accountant', 'staff'].includes(msg.sender_role || '')
-                      ? 'staff'
-                      : 'lawyer') as 'lawyer' | 'staff' | 'user' | 'bot' | 'system',
-              staffName: senderName,
-              text: msg.message_text,
-              time: new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
-              attachment_url: msg.attachment_url,
-              attachment_type: msg.attachment_type,
-              isSystem: isSystemMessage,
-              isEmergency: msg.message_text?.includes('طوارئ') || msg.message_text?.includes('🆘'),
-              sender_id: msg.sender_id,
-              sender_role: msg.sender_role,
-            };
-          });
-          setHumanMsgs(mapped);
-        }
-      } catch (err) {
-        console.error('Error fetching initial messages:', err);
-      }
+  /* Fetch initial messages and subscribe to new messages when case is selected */
+  const mapDbMsgToChatMsg = (msg: any): ChatMsg => {
+    const isSystemMessage = msg.message_text?.startsWith('【') || msg.sender_role === 'system';
+    const matchedMember = teamMembersRef.current.find(m => m.id === msg.sender_id);
+    const senderName = matchedMember ? matchedMember.full_name : '';
+    return {
+      id: msg.id,
+      from: (msg.sender_id === user?.id
+        ? 'user'
+        : isSystemMessage
+          ? 'system'
+          : ['owner', 'partner', 'lawyer'].includes(msg.sender_role || '')
+            ? 'lawyer'
+            : ['assistant', 'secretary', 'accountant', 'staff'].includes(msg.sender_role || '')
+              ? 'staff'
+              : 'lawyer') as 'lawyer' | 'staff' | 'user' | 'bot' | 'system',
+      staffName: senderName,
+      text: msg.message_text || '',
+      time: new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      attachment_url: msg.attachment_url,
+      attachment_type: msg.attachment_type,
+      isSystem: isSystemMessage,
+      isEmergency: msg.message_text?.includes('طوارئ') || msg.message_text?.includes('🆘'),
+      sender_id: msg.sender_id,
+      sender_role: msg.sender_role,
     };
+  };
 
-    fetchMessages();
-  }, [selectedCase?.id, user.id, teamMembers, reconnectTrigger]);
+  useEffect(() => {
+    if (!selectedCase?.id || !user?.id) return;
+
+    // جيب الرسائل القديمة الأول
+    supabase
+      .from('messages')
+      .select('*')
+      .eq('case_id', selectedCase.id)
+      .eq('room_type', 'client_chat')
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (data) {
+          setHumanMsgs(data.map(mapDbMsgToChatMsg));
+        }
+      });
+
+    // اشترك في الرسائل الجديدة
+    const channel = supabase
+      .channel(`chat-${selectedCase.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `case_id=eq.${selectedCase.id}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as any;
+          if (newMsg.room_type !== 'client_chat') return;
+          setHumanMsgs(prev => {
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            return [...prev, mapDbMsgToChatMsg(newMsg)];
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedCase?.id, user?.id]);
 
 
 

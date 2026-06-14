@@ -186,31 +186,6 @@ export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatPro
     };
 
     fetchMessages();
-
-    chRef.current?.unsubscribe();
-    chRef.current = supabase
-      .channel('msgs:' + selectedCase.id)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'messages',
-        filter: `case_id=eq.${selectedCase.id}`,
-      }, (payload) => {
-        const msg = payload.new as Message;
-        // Filter out internal team chat from lawyer's client chat view
-        if ((msg as any).room_type === 'internal_team_chat') return;
-        setMsgs((prev) => {
-          if (prev.some((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'messages',
-        filter: `case_id=eq.${selectedCase.id}`,
-      }, (payload) => {
-        setMsgs((prev) => prev.map((m) => m.id === payload.new.id ? (payload.new as Message) : m));
-      })
-      .subscribe();
-
-    return () => { chRef.current?.unsubscribe(); };
   }, [selectedCase]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
