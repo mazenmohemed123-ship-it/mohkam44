@@ -236,15 +236,17 @@ export function TeamManagement({ masterLawyerId, tier, push }: TeamManagementPro
             {staff.length}/{FIRM_CAP} عضو في الفريق
           </p>
         </div>
-        <Button variant="gold" onClick={() => {
-          if (tier !== 'team') {
-            push('إضافة أعضاء الفريق متاحة في باقة Team فقط 🏆', 'warning');
-            return;
-          }
-          setShowAddForm(!showAddForm);
-        }} disabled={staff.length >= FIRM_CAP} style={{ opacity: staff.length >= FIRM_CAP ? 0.5 : 1 }}>
-          <UserPlus size={14} /> {staff.length >= FIRM_CAP ? 'تم بلوغ الحد' : 'إضافة عضو'}
-        </Button>
+        {tier === 'team' ? (
+          staff.length < 6 ? (
+            <Button variant="gold" onClick={() => setShowAddForm(true)}>
+              ➕ إضافة عضو
+            </Button>
+          ) : (
+            <p style={{color:'#94a3b8', fontSize:12, textAlign:'center'}}>
+              ✋ وصلت للحد الأقصى (6 أعضاء)
+            </p>
+          )
+        ) : null}
       </div>
 
       {/* Capacity Warning */}

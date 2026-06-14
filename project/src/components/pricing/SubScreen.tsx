@@ -248,13 +248,11 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
   const [selectedTier, setSelectedTier] = useState<TierInfo | null>(null);
   const [processing, setProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
-  const [autoRenew, setAutoRenew] = useState(true); // Default to enabled
 
   /* Coupon State */
   const [couponCode, setCouponCode] = useState('');
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponError, setCouponError] = useState('');
-  const [coupon, setCoupon] = useState<any>(null);
 
   /* Paymob Iframe state */
   const [paymentKey, setPaymentKey] = useState('');
@@ -302,7 +300,6 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
     setCouponCode('');
     setCouponDiscount(0);
     setCouponError('');
-    setCoupon(null);
     setPaymentKey('');
     setShowIframe(false);
     setShowCheckout(true);
@@ -327,33 +324,28 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
     if (!couponData) {
       setCouponError('كود غير صحيح');
       setCouponDiscount(0);
-      setCoupon(null);
       return;
     }
     
     if (couponData.expires_at && new Date(couponData.expires_at) < new Date()) {
       setCouponError('الكود منتهي الصلاحية');
       setCouponDiscount(0);
-      setCoupon(null);
       return;
     }
     
     if (couponData.used_count >= couponData.max_uses) {
       setCouponError('تم استخدام الكود بالحد الأقصى');
       setCouponDiscount(0);
-      setCoupon(null);
       return;
     }
 
     if (couponData.tier_target !== selectedTier?.id) {
       setCouponError('هذا الكوبون غير صالح لهذه الباقة');
       setCouponDiscount(0);
-      setCoupon(null);
       return;
     }
     
     setCouponDiscount(couponData.discount_percent);
-    setCoupon(couponData);
     setCouponError('');
     push(`تم تطبيق خصم ${couponData.discount_percent}% ✅`, 'success');
 

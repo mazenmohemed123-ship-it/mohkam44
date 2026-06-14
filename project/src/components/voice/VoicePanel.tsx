@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Mic, MicOff, Type, X, RefreshCw, Save, AlertCircle } from 'lucide-react';
 import { Button, Field, Modal, Spinner } from '../atoms';
 import { supabase, sendPushToClient } from '../../services/supabase';
