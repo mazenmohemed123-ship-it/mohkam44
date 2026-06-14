@@ -55,7 +55,10 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
   const recRef = useRef<any>(null);
 
   const modeRef = useRef(mode);
-  useEffect(() => { modeRef.current = mode; }, [mode]);
+  const changeMode = (newMode: 'idle' | 'listening' | 'preview' | 'text') => {
+    modeRef.current = newMode;
+    setMode(newMode);
+  };
 
   const startListen = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -72,18 +75,27 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
         setTranscript(transcript);
       }
     };
-    recognition.onerror = () => setMode('idle');
+    recognition.onerror = () => changeMode('idle');
     recognition.onend = () => {
       if (recRef.current && modeRef.current === 'listening') {
         try { recRef.current.start(); } catch {}
-      } else {
-        setMode('idle');
+      } else if (modeRef.current !== 'preview') {
+        changeMode('idle');
       }
     };
     recognition.lang = getLangCode(voiceLang);
     recognition.start();
     recRef.current = recognition;
-    setMode('listening');
+    changeMode('listening');
+  };
+
+  const stopAndPreview = () => {
+    recRef.current?.stop();
+    if (transcript.trim()) {
+      process(transcript);
+    } else {
+      changeMode('idle');
+    }
   };
 
   const process = (text: string) => {
@@ -105,7 +117,7 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
     };
     const merged = r.existing ? { ...r.existing, ...parsedObj } : parsedObj;
     setFields({ ...merged, case_number: merged.case_number || 'MHK-' + Date.now().toString().slice(-5) });
-    setMode('preview');
+    changeMode('preview');
   };
 
   const saveToSupabase = async () => {
@@ -163,7 +175,7 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
         </h3>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {mode !== 'preview' && (
-            <Button size="sm" variant={mode === 'text' ? 'primary' : 'secondary'} onClick={() => setMode(mode === 'text' ? 'idle' : 'text')}>
+            <Button size="sm" variant={mode === 'text' ? 'primary' : 'secondary'} onClick={() => changeMode(mode === 'text' ? 'idle' : 'text')}>
               {mode === 'text' ? <><Mic size={14} /> صوت</> : <><Type size={14} /> كتابة</>}
             </Button>
           )}
@@ -224,7 +236,7 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
                   </>
                 )}
                 <button
-                  onClick={mode === 'listening' ? () => process(transcript) : startListen}
+                  onClick={mode === 'listening' ? stopAndPreview : startListen}
                   className={mode === 'listening' ? 'mic-active' : ''}
                   style={{
                     width: 90, height: 90, borderRadius: '50%', border: 'none', cursor: 'pointer',
@@ -250,7 +262,7 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
                     {transcript}
                   </div>
                 )}
-                <Button variant="danger" style={{ marginTop: 16 }} onClick={() => process(transcript)}>
+                 <Button variant="danger" style={{ marginTop: 16 }} onClick={stopAndPreview}>
                   <MicOff size={14} /> إيقاف ومعالجة
                 </Button>
               </>
@@ -299,7 +311,7 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
               <Button fullWidth onClick={saveToSupabase} disabled={saving}>
                 {saving ? <><Spinner /> جاري الحفظ...</> : <><Save size={14} /> {result.type === 'update' ? 'تحديث وإرسال إشعار' : 'حفظ في Supabase'}</>}
               </Button>
-              <Button variant="secondary" onClick={() => setMode('idle')}>
+              <Button variant="secondary" onClick={() => changeMode('idle')}>
                 <RefreshCw size={14} /> إعادة
               </Button>
             </div>

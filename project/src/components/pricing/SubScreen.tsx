@@ -256,11 +256,9 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
   const [couponError, setCouponError] = useState('');
   const [coupon, setCoupon] = useState<any>(null);
 
-  /* Cardholder form state */
-  const [cardName, setCardName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCVV, setCardCVV] = useState('');
+  /* Paymob Iframe state */
+  const [paymentKey, setPaymentKey] = useState('');
+  const [showIframe, setShowIframe] = useState(false);
 
   /* Country-based pricing state */
   const [countryPricing, setCountryPricing] = useState<CountryPricing | null>(null);
@@ -273,6 +271,11 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
 
   const t = TRANSLATIONS[lang];
   const curr = CURRENCY_RATES[currency];
+
+  const pricing = {
+    currency: countryPricing?.currency || currency,
+    symbol: countryPricing?.symbol || curr?.symbol || currency
+  };
 
   const convertPrice = (usd: number, tierId?: string) => {
     // Use country-based pricing if available
@@ -295,15 +298,13 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
   const openCheckout = (tierInfo: TierInfo) => {
     if (tierInfo.id === 'free') return;
     setSelectedTier(tierInfo);
-    setCardName('');
-    setCardNumber('');
-    setCardExpiry('');
-    setCardCVV('');
     setPaymentSuccess(false);
     setCouponCode('');
     setCouponDiscount(0);
     setCouponError('');
     setCoupon(null);
+    setPaymentKey('');
+    setShowIframe(false);
     setShowCheckout(true);
   };
 
@@ -393,41 +394,32 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
     basePrice * (1 - couponDiscount / 100)
   );
 
-  const processPayment = async () => {
-    if (!selectedTier || !cardName || !cardNumber || cardNumber.length < 15) return;
-
+  const handlePay = async () => {
+    if (!selectedTier) return;
     setProcessing(true);
-
     try {
-      /* Invoke Edge Function for checkout session */
-      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-        body: {
-          tier: selectedTier.id,
-          amount: finalPrice,
-          currency: currency.toLowerCase(),
-          client_id: profile.id,
-          channel: 'card',
-          redirect_origin: window.location.origin,
-          type: 'subscription_payment',
-          metadata: {
-            coupon_id: coupon?.id || null,
-            coupon_code: couponCode || null,
-            discount_percent: couponDiscount,
-            auto_renew: autoRenew,
+      const pricingCurrency = countryPricing?.currency || currency;
+      const { data, error } = await supabase.functions.invoke(
+        'create-checkout-session',
+        {
+          body: {
+            amount: finalPrice,
+            currency: pricingCurrency,
+            client_id: profile.id,
+            tier: selectedTier.id,
           }
-        },
-      });
-
+        }
+      );
       if (error) throw error;
-      if (!data?.url) throw new Error(lang === 'ar' ? 'لم يتم استرجاع رابط الدفع' : 'No checkout URL returned');
-
-      push(lang === 'ar' ? 'جاري توجيهك لبوابة دفع Paymob...' : 'Redirecting to Paymob payment gateway...', 'success');
-      
-      setTimeout(() => {
-        window.location.href = data.url;
-      }, 1000);
+      if (data?.payment_key) {
+        setPaymentKey(data.payment_key);
+        setShowIframe(true);
+      } else {
+        push(lang === 'ar' ? 'خطأ في جلب مفتاح الدفع' : 'Failed to retrieve payment key', 'danger');
+      }
     } catch (err: any) {
       push(lang === 'ar' ? 'خطأ في الدفع: ' + err.message : 'Payment error: ' + err.message, 'danger');
+    } finally {
       setProcessing(false);
     }
   };
@@ -582,88 +574,34 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                   <p style={{ fontSize: 10, color: 'var(--muted)' }}>{t.monthly}</p>
                 </div>
 
-                {/* Coupon Input */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--navy)' }}>كود الخصم (اختياري)</p>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                {/* Coupon Code Block */}
+                <div style={{marginBottom: 16}}>
+                  <p style={{marginBottom: 8, fontWeight: 'bold'}}>
+                    كود الخصم (اختياري)
+                  </p>
+                  <div style={{display: 'flex', gap: 8}}>
                     <input
-                      type="text"
-                      placeholder="كود الخصم (اختياري)"
+                      placeholder="أدخل كود الخصم"
                       value={couponCode}
                       onChange={e => setCouponCode(e.target.value)}
-                      disabled={processing}
-                      style={{ flex: 1, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: 13, fontFamily: "'Cairo',sans-serif" }}
+                      style={{flex: 1, padding: '8px 12px', borderRadius: 8}}
                     />
-                    <Button variant="primary" onClick={applyCoupon} disabled={processing} style={{ whiteSpace: 'nowrap' }}>
+                    <button onClick={applyCoupon}
+                      style={{
+                        background: '#2563eb', color: 'white',
+                        border: 'none', borderRadius: 8,
+                        padding: '8px 16px', cursor: 'pointer'
+                      }}>
                       تطبيق
-                    </Button>
+                    </button>
                   </div>
-                  {couponError && <p style={{ color: 'var(--danger)', fontSize: 11, fontWeight: 700 }}>{couponError}</p>}
+                  {couponError && <p style={{ color: 'var(--danger)', fontSize: 11, fontWeight: 700, marginTop: 4 }}>{couponError}</p>}
                   {couponDiscount > 0 && (
-                    <p style={{ color: 'var(--success)', fontSize: 12, fontWeight: 800 }}>
-                      ✓ تم تطبيق خصم {couponDiscount}%
+                    <p style={{color: '#16a34a', marginTop: 4}}>
+                      ✅ خصم {couponDiscount}% — السعر النهائي: 
+                      {finalPrice} {pricing.symbol}
                     </p>
                   )}
-                </div>
-
-                {/* Cardholder Details Form */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--navy)' }}>{t.cardDetails}</p>
-
-                  <input
-                    type="text"
-                    value={cardName}
-                    onChange={(e) => setCardName(e.target.value)}
-                    placeholder={t.cardName}
-                    style={{ padding: '12px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: 13, fontFamily: "'Cairo',sans-serif", width: '100%' }}
-                  />
-
-                  <input
-                    type="text"
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                    placeholder={t.cardNumber}
-                    style={{ padding: '12px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: 13, fontFamily: "'JetBrains Mono', monospace", width: '100%', direction: 'ltr' }}
-                  />
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <input
-                      type="text"
-                      value={cardExpiry}
-                      onChange={(e) => setCardExpiry(e.target.value)}
-                      placeholder={t.expiry}
-                      style={{ padding: '12px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: 13, fontFamily: "'JetBrains Mono', monospace" }}
-                    />
-                    <input
-                      type="text"
-                      value={cardCVV}
-                      onChange={(e) => setCardCVV(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      placeholder={t.cvv}
-                      style={{ padding: '12px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: 13, fontFamily: "'JetBrains Mono', monospace" }}
-                    />
-                  </div>
-                </div>
-
-                {/* Auto-Renewal Toggle */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#F5F8FF', borderRadius: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Zap size={14} color={autoRenew ? 'var(--success)' : 'var(--muted)'} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>{lang === 'ar' ? 'التجديد التلقائي للباقة' : 'Auto-renew subscription'}</span>
-                  </div>
-                  <button
-                    onClick={() => setAutoRenew(!autoRenew)}
-                    style={{
-                      width: 44, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer',
-                      background: autoRenew ? 'var(--success)' : 'var(--border)', transition: 'background .2s', position: 'relative',
-                    }}
-                  >
-                    <div style={{
-                      width: 18, height: 18, borderRadius: '50%', background: '#fff',
-                      position: 'absolute', top: 3, transition: 'right .2s',
-                      right: autoRenew ? 3 : 23,
-                      boxShadow: '0 1px 4px rgba(0,0,0,.2)',
-                    }} />
-                  </button>
                 </div>
 
                 {/* Security Notice */}
@@ -676,8 +614,8 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                 <Button
                   variant="gold"
                   fullWidth
-                  disabled={!cardName || cardNumber.length < 15 || processing}
-                  onClick={processPayment}
+                  disabled={processing}
+                  onClick={handlePay}
                   style={{ padding: '14px 20px', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                 >
                   {processing ? <><Spinner /> {t.processing}</> : <><Wallet size={16} /> {t.payNow}</>}
@@ -687,6 +625,44 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
               </div>
             )}
           </Card>
+        </div>
+      )}
+      {showIframe && paymentKey && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0,
+          width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.8)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{ 
+            background: 'white', 
+            borderRadius: 12,
+            width: '90%', 
+            maxWidth: 500,
+            height: '80vh',
+            position: 'relative'
+          }}>
+            <button 
+              onClick={() => setShowIframe(false)}
+              style={{
+                position: 'absolute', top: 8, left: 8,
+                background: '#ef4444', color: 'white',
+                border: 'none', borderRadius: 6,
+                padding: '4px 12px', cursor: 'pointer',
+                zIndex: 1
+              }}
+            >✕ إغلاق</button>
+            <iframe
+              src={`https://accept.paymob.com/api/acceptance/iframes/YOUR_IFRAME_ID?payment_token=${paymentKey}`}
+              style={{ 
+                width: '100%', height: '100%',
+                border: 'none', borderRadius: 12
+              }}
+            />
+          </div>
         </div>
       )}
     </div>

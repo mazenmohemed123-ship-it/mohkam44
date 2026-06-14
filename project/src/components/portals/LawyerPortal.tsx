@@ -97,6 +97,12 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
   const [savingPayment, setSavingPayment] = useState(false);
   const [currency, setCurrency] = useState<CurrencyCode>((initProfile as any).currency || 'EGP');
 
+  // Edit Name & Phone state
+  const [editName, setEditName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [editPhone, setEditPhone] = useState(false);
+  const [newPhone, setNewPhone] = useState('');
+
   const { list: notifList, push } = useNotifications();
   const { canViewChat, canViewCaseDetails, canManageBilling, activeRole } = useRole();
   const tier = profile.tier || 'free';
@@ -489,7 +495,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
     { id: 'cases', icon: ClipboardList, label: 'القضايا' },
     ...(canViewChat ? [{ id: 'chat', icon: MessageSquare, label: 'الشات' }] : []),
     ...(canViewCaseDetails ? [{ id: 'timeline', icon: FileText, label: 'التايملاين' }] : []),
-    ...(tier === 'team' ? [{ id: 'team', icon: Users, label: 'الفريق' }] : []),
+    { id: 'team', icon: Users, label: 'الفريق' },
     { id: 'sub', icon: Crown, label: 'الباقة' },
     ...(canManageBilling ? [{ id: 'billing', icon: Calculator, label: 'الفواتير' }] : []),
     { id: 'settings', icon: Settings, label: 'الإعدادات' },
@@ -759,15 +765,23 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
           </Card>
         )}
 
-        {tab === 'team' && tier === 'team' && (
+        {tab === 'team' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <TeamChat
-              masterLawyerId={effectiveLawyerId}
-              userId={user.id}
-              userRole={activeRole}
-              push={push}
-              userEmail={user.email}
-            />
+            {tier === 'team' ? (
+              <TeamChat
+                masterLawyerId={effectiveLawyerId}
+                userId={user.id}
+                userRole={activeRole}
+                push={push}
+                userEmail={user.email}
+              />
+            ) : (
+              <Card style={{ padding: 40, textAlign: 'center' }}>
+                <Users size={40} color="var(--border)" style={{ margin: '0 auto 12px' }} />
+                <h3 style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 16 }}>المحادثة الجماعية للفريق</h3>
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>هذه الميزة متوفرة في باقة Team فقط 🏆</p>
+              </Card>
+            )}
             {isMasterLawyer && (
               <TeamManagement
                 masterLawyerId={user.id}
@@ -933,9 +947,98 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                       />
                     </label>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 800, fontSize: 16 }}>{profile.full_name}</p>
-                    <p style={{ fontSize: 12, color: 'var(--muted)' }}>{profile.phone_number}</p>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {editName ? (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                          value={newName}
+                          onChange={(e) => setNewName(e.target.value)}
+                          style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 13 }}
+                        />
+                        <button
+                          onClick={async () => {
+                            const { error } = await supabase.from('profiles')
+                              .update({ full_name: newName })
+                              .eq('id', user.id);
+                            if (!error) {
+                              setProfile((p) => p ? { ...p, full_name: newName } : p);
+                              push('تم التحديث ✅', 'success');
+                            } else {
+                              push('خطأ في التحديث', 'danger');
+                            }
+                            setEditName(false);
+                          }}
+                          style={{ padding: '4px 8px', borderRadius: 6, background: 'var(--navy)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12 }}
+                        >
+                          حفظ
+                        </button>
+                        <button
+                          onClick={() => setEditName(false)}
+                          style={{ padding: '4px 8px', borderRadius: 6, background: 'var(--border)', color: 'var(--text)', border: 'none', cursor: 'pointer', fontSize: 12 }}
+                        >
+                          إلغاء
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <p style={{ fontWeight: 800, fontSize: 16, margin: 0 }}>{profile.full_name}</p>
+                        <button
+                          onClick={() => {
+                            setNewName(profile.full_name);
+                            setEditName(true);
+                          }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        >
+                          ✏️
+                        </button>
+                      </div>
+                    )}
+
+                    {editPhone ? (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                          value={newPhone}
+                          onChange={(e) => setNewPhone(e.target.value)}
+                          style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}
+                        />
+                        <button
+                          onClick={async () => {
+                            const { error } = await supabase.from('profiles')
+                              .update({ phone_number: newPhone })
+                              .eq('id', user.id);
+                            if (!error) {
+                              setProfile((p) => p ? { ...p, phone_number: newPhone } : p);
+                              push('تم التحديث ✅', 'success');
+                            } else {
+                              push('خطأ في التحديث', 'danger');
+                            }
+                            setEditPhone(false);
+                          }}
+                          style={{ padding: '4px 8px', borderRadius: 6, background: 'var(--navy)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11 }}
+                        >
+                          حفظ
+                        </button>
+                        <button
+                          onClick={() => setEditPhone(false)}
+                          style={{ padding: '4px 8px', borderRadius: 6, background: 'var(--border)', color: 'var(--text)', border: 'none', cursor: 'pointer', fontSize: 11 }}
+                        >
+                          إلغاء
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>{profile.phone_number || 'لا يوجد رقم هاتف'}</p>
+                        <button
+                          onClick={() => {
+                            setNewPhone(profile.phone_number || '');
+                            setEditPhone(true);
+                          }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        >
+                          ✏️
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ marginTop: 8 }}>
