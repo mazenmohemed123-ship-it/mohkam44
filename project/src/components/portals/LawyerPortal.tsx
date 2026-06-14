@@ -612,7 +612,19 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
               <Badge color="red">{emergencies.length} طوارئ</Badge>
             )}
             {pendingAppointments.length > 0 && (
-              <Badge color="orange">{pendingAppointments.length} موعد معلق</Badge>
+              <button
+                onClick={() => setTab('timeline')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'inline-flex',
+                }}
+              >
+                <Badge color="orange">📅 {pendingAppointments.length} موعد معلق</Badge>
+              </button>
             )}
           </div>
         </Card>

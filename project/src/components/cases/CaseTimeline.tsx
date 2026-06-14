@@ -3,6 +3,7 @@ import { Clock, CheckCircle, AlertCircle, XCircle, Calendar, Gavel } from 'lucid
 import { Card, Badge, Button, Field } from '../atoms';
 import { useCase, type CaseEvent, type AppointmentRequest } from '../../context/CaseContext';
 import type { FirmRole } from '../../context/RoleContext';
+import { supabase } from '../../services/supabase';
 
 interface CaseTimelineProps {
   caseId: string;
@@ -30,14 +31,33 @@ const eventTypeColors: Record<string, string> = {
 };
 
 export function CaseTimeline({ caseId, lawyerId, userId, activeRole, userName, push }: CaseTimelineProps) {
-  const { events, loadEvents, appointments, loadAppointments, respondAppointment, addEvent } = useCase();
+  const { respondAppointment, addEvent } = useCase();
   const [rejectFeedback, setRejectFeedback] = useState<Record<string, string>>({});
   const [showRejectInput, setShowRejectInput] = useState<string | null>(null);
 
+  const [events, setEvents] = useState<CaseEvent[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentRequest[]>([]);
+
+  const fetchTimelineData = async () => {
+    const { data: eventsData } = await supabase
+      .from('case_events')
+      .select('*')
+      .eq('case_id', caseId)
+      .order('created_at', { ascending: false });
+
+    const { data: appointmentsData } = await supabase
+      .from('appointment_requests')
+      .select('*')
+      .eq('case_id', caseId)
+      .order('created_at', { ascending: false });
+
+    if (eventsData) setEvents(eventsData);
+    if (appointmentsData) setAppointments(appointmentsData || []);
+  };
+
   useEffect(() => {
-    loadEvents(caseId);
-    loadAppointments(lawyerId);
-  }, [caseId, lawyerId, loadEvents, loadAppointments]);
+    fetchTimelineData();
+  }, [caseId]);
 
   const handleAccept = async (appt: AppointmentRequest) => {
     await respondAppointment(appt.id, 'accepted', {
@@ -47,6 +67,7 @@ export function CaseTimeline({ caseId, lawyerId, userId, activeRole, userName, p
     });
     await addEvent(caseId, 'APPOINTMENT_ACCEPTED', `تم قبول موعد ${appt.appointment_date} الساعة ${appt.appointment_time}`);
     push('✓ تم قبول الموعد وإرسال رسالة تأكيد للموكل', 'success');
+    fetchTimelineData();
   };
 
   const handleReject = async (apptId: string) => {
@@ -60,16 +81,13 @@ export function CaseTimeline({ caseId, lawyerId, userId, activeRole, userName, p
     await addEvent(caseId, 'APPOINTMENT_REJECTED', `تم رفض الموعد${feedback ? ': ' + feedback : ''}`);
     push('تم رفض الموعد وإرسال رسالة للموكل', 'warning');
     setShowRejectInput(null);
+    fetchTimelineData();
   };
-
-  const pendingAppointments = appointments.filter(
-    (a) => a.case_id === caseId && a.status === 'pending'
-  );
 
   const allItems = [
     ...events.map((e) => ({ type: 'event' as const, data: e, date: e.created_at })),
-    ...pendingAppointments.map((a) => ({ type: 'appointment' as const, data: a, date: a.created_at })),
-  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    ...appointments.map((a) => ({ type: 'appointment' as const, data: a, date: a.created_at })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -119,21 +137,29 @@ export function CaseTimeline({ caseId, lawyerId, userId, activeRole, userName, p
 
           // Appointment card
           const appt = item.data as AppointmentRequest;
+          const statusColors: Record<string, { border: string; bg: string; badge: 'green' | 'red' | 'orange' | 'gold'; text: string }> = {
+            accepted: { border: 'var(--success)', bg: '#F4FBF7', badge: 'green', text: 'مقبول' },
+            rejected: { border: 'var(--danger)', bg: '#FFF5F5', badge: 'red', text: 'مرفوض' },
+            pending: { border: '#D97706', bg: '#FFFBEB', badge: 'orange', text: 'بانتظار الرد' },
+            rescheduled: { border: 'var(--gold)', bg: '#FEF7E6', badge: 'gold', text: 'مقترح بديل' },
+          };
+          const statusConfig = statusColors[appt.status] || statusColors.pending;
+
           return (
             <div key={appt.id} className="fade-up" style={{ position: 'relative', marginBottom: 20 }}>
               <div style={{
                 position: 'absolute', right: -28, top: 4,
                 width: 20, height: 20, borderRadius: '50%',
-                background: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 0 0 3px #fff, 0 0 8px rgba(217,119,6,.3)',
-                animation: 'glow 2s ease infinite',
+                background: statusConfig.border, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 0 0 3px #fff, 0 0 8px ${statusConfig.border}44`,
+                animation: appt.status === 'pending' ? 'glow 2s ease infinite' : undefined,
               }}>
                 <Calendar size={10} color="#fff" />
               </div>
               <Card style={{
                 padding: '14px 16px', marginRight: 8,
-                borderLeft: '3px solid #D97706',
-                background: '#FFFBEB',
+                borderLeft: `3px solid ${statusConfig.border}`,
+                background: statusConfig.bg,
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                   <div>
@@ -146,32 +172,39 @@ export function CaseTimeline({ caseId, lawyerId, userId, activeRole, userName, p
                     {appt.reason && (
                       <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{appt.reason}</p>
                     )}
+                    {appt.alternative_time && (
+                      <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                        الوقت البديل: <strong style={{ color: 'var(--navy)' }}>{appt.alternative_time}</strong>
+                      </p>
+                    )}
                   </div>
-                  <Badge color="orange">بانتظار الرد</Badge>
+                  <Badge color={statusConfig.badge}>{statusConfig.text}</Badge>
                 </div>
 
-                {showRejectInput === appt.id ? (
-                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <Field
-                      label="اقتراح ميعاد بديل"
-                      value={rejectFeedback[appt.id] || ''}
-                      onChange={(v) => setRejectFeedback((p) => ({ ...p, [appt.id]: v }))}
-                      placeholder="مثال: الثلاثاء القادم 3 مساءً"
-                    />
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <Button size="sm" variant="danger" onClick={() => handleReject(appt.id)}>إرسال الرفض</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setShowRejectInput(null)}>إلغاء</Button>
+                {appt.status === 'pending' && (
+                  showRejectInput === appt.id ? (
+                    <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <Field
+                        label="اقتراح ميعاد بديل"
+                        value={rejectFeedback[appt.id] || ''}
+                        onChange={(v) => setRejectFeedback((p) => ({ ...p, [appt.id]: v }))}
+                        placeholder="مثال: الثلاثاء القادم 3 مساءً"
+                      />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <Button size="sm" variant="danger" onClick={() => handleReject(appt.id)}>إرسال الرفض</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setShowRejectInput(null)}>إلغاء</Button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <Button size="sm" variant="success" onClick={() => handleAccept(appt)}>
-                      <CheckCircle size={14} /> قبول الموعد
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => setShowRejectInput(appt.id)}>
-                      <XCircle size={14} /> رفض وتعديل
-                    </Button>
-                  </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <Button size="sm" variant="success" onClick={() => handleAccept(appt)}>
+                        <CheckCircle size={14} /> قبول الموعد
+                      </Button>
+                      <Button size="sm" variant="danger" onClick={() => setShowRejectInput(appt.id)}>
+                        <XCircle size={14} /> رفض وتعديل
+                      </Button>
+                    </div>
+                  )
                 )}
               </Card>
             </div>
