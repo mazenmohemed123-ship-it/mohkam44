@@ -89,28 +89,32 @@ export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatPro
     setShowNewChatModal(false);
     setSearchQuery('');
 
-    const existingCase = cases.find(
-      (c) => c.client_id === client.id || c.client_phone === client.phone_number
+    // 1. Search in local cases list for a GENERAL-CHAT case for this client
+    const existingGeneralChat = cases.find(
+      (c) => (c.client_id === client.id || c.client_phone === client.phone_number) && c.case_number === 'GENERAL-CHAT'
     );
 
-    if (existingCase) {
-      setSelectedCase(existingCase);
+    if (existingGeneralChat) {
+      setSelectedCase(existingGeneralChat);
       return;
     }
 
     try {
-      const { data: dbCases } = await supabase
+      // 2. Search in DB for GENERAL-CHAT case for this lawyer and client
+      const { data: generalChat } = await supabase
         .from('cases')
         .select('*')
         .eq('lawyer_id', masterLawyerId)
         .eq('client_id', client.id)
-        .limit(1);
+        .eq('case_number', 'GENERAL-CHAT')
+        .maybeSingle();
 
-      if (dbCases && dbCases.length > 0) {
-        setSelectedCase(dbCases[0]);
+      if (generalChat) {
+        setSelectedCase(generalChat);
         return;
       }
 
+      // 3. If no GENERAL-CHAT case exists, create one
       const { data: newCase } = await supabase
         .from('cases')
         .insert([{
