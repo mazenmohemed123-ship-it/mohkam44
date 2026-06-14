@@ -387,32 +387,44 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
   );
 
   const handlePay = async () => {
-    if (!selectedTier) return;
-    setProcessing(true);
+    if (finalPrice === 0) {
+      // كوبون 100% — تم التفعيل مجاناً
+      return;
+    }
+    
     try {
-      const pricingCurrency = countryPricing?.currency || currency;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        push('يجب تسجيل الدخول أولاً', 'danger');
+        return;
+      }
+      
       const { data, error } = await supabase.functions.invoke(
         'create-checkout-session',
         {
           body: {
-            amount: finalPrice,
-            currency: pricingCurrency,
-            client_id: profile.id,
-            tier: selectedTier.id,
+            amount: finalPrice * 100, // Paymob بياخد قروش
+            currency: pricing.currency,
+            client_id: user.id,
+            tier: selectedTier?.id,
+            billing_data: {
+              first_name: profile.full_name?.split(' ')[0] || 'Client',
+              last_name: profile.full_name?.split(' ')[1] || 'User',
+              email: user.email || 'NA',
+              phone_number: profile.phone_number || 'NA',
+            }
           }
         }
       );
-      if (error) throw error;
+      
       if (data?.payment_key) {
         setPaymentKey(data.payment_key);
         setShowIframe(true);
       } else {
-        push(lang === 'ar' ? 'خطأ في جلب مفتاح الدفع' : 'Failed to retrieve payment key', 'danger');
+        push('خطأ في بدء الدفع', 'danger');
       }
-    } catch (err: any) {
-      push(lang === 'ar' ? 'خطأ في الدفع: ' + err.message : 'Payment error: ' + err.message, 'danger');
-    } finally {
-      setProcessing(false);
+    } catch {
+      push('خطأ في الاتصال', 'danger');
     }
   };
 
@@ -603,15 +615,23 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                 </div>
 
                 {/* Pay Button */}
-                <Button
-                  variant="gold"
-                  fullWidth
-                  disabled={processing}
+                <button
                   onClick={handlePay}
-                  style={{ padding: '14px 20px', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                  disabled={finalPrice === 0}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    background: finalPrice === 0 ? '#16a34a' : '#f59e0b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 10,
+                    fontWeight: 'bold',
+                    fontSize: 16,
+                    cursor: 'pointer',
+                  }}
                 >
-                  {processing ? <><Spinner /> {t.processing}</> : <><Wallet size={16} /> {t.payNow}</>}
-                </Button>
+                  {finalPrice === 0 ? '✅ تم التفعيل مجاناً' : '💳 ادفع الآن'}
+                </button>
 
                 <p style={{ fontSize: 9, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}>{t.terms}</p>
               </div>
@@ -621,38 +641,45 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
       )}
       {showIframe && paymentKey && (
         <div style={{
-          position: 'fixed', top: 0, left: 0,
-          width: '100%', height: '100%',
-          background: 'rgba(0,0,0,0.8)',
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.85)',
           zIndex: 9999,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          padding: 16,
         }}>
-          <div style={{ 
-            background: 'white', 
-            borderRadius: 12,
-            width: '90%', 
-            maxWidth: 500,
-            height: '80vh',
-            position: 'relative'
+          <div style={{
+            background: 'white',
+            borderRadius: 16,
+            width: '100%',
+            maxWidth: 520,
+            height: '85vh',
+            position: 'relative',
+            overflow: 'hidden',
           }}>
-            <button 
-              onClick={() => setShowIframe(false)}
+            <button
+              onClick={() => {
+                setShowIframe(false);
+                setPaymentKey('');
+              }}
               style={{
-                position: 'absolute', top: 8, left: 8,
+                position: 'absolute', top: 12, right: 12,
                 background: '#ef4444', color: 'white',
-                border: 'none', borderRadius: 6,
-                padding: '4px 12px', cursor: 'pointer',
-                zIndex: 1
+                border: 'none', borderRadius: 8,
+                padding: '6px 14px', cursor: 'pointer',
+                fontWeight: 'bold', zIndex: 1,
+                fontSize: 16,
               }}
-            >✕ إغلاق</button>
+            >✕</button>
             <iframe
-              src={`https://accept.paymob.com/api/acceptance/iframes/YOUR_IFRAME_ID?payment_token=${paymentKey}`}
-              style={{ 
-                width: '100%', height: '100%',
-                border: 'none', borderRadius: 12
+              src={`https://accept.paymob.com/api/acceptance/iframes/${import.meta.env.VITE_PAYMOB_IFRAME_ID}?payment_token=${paymentKey}`}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
               }}
+              title="Paymob Secure Payment"
             />
           </div>
         </div>
