@@ -6,6 +6,7 @@ import { supabase } from '../../services/supabase';
 import { checkFloodLimit } from '../../services/floodProtection';
 import { checkChatUploadQuota, getDailyChatUploadCount } from '../../services/chatQuotas';
 import { useRole } from '../../context/RoleContext';
+import { useCase, type CaseRow } from '../../context/CaseContext';
 import { v4 as uuidv4 } from 'uuid';
 
 interface Message {
@@ -21,17 +22,6 @@ interface Message {
   updated_at: string;
 }
 
-interface CaseInfo {
-  id: string;
-  case_number: string;
-  client_id?: string;
-  client_name?: string;
-  client_phone?: string;
-  case_type?: string;
-  judgment?: string;
-  total_fees: number;
-}
-
 /* Helper functions for emergency/system message detection */
 const isEmergencyMessage = (text: string): boolean =>
   text.startsWith('🆘') || text.includes('【طلب طوارئ') || text.includes('🆘 [طلب طوارئ') || text.includes('【🚨 طلب طوارئ');
@@ -40,15 +30,16 @@ const isSystemMessage = (text: string): boolean =>
   text.startsWith('【') || text.includes('تم قبول') || text.includes('تم رفض');
 
 interface RealtimeChatProps {
-  cases: CaseInfo[];
+  cases: CaseRow[];
   userId: string;
   push: (msg: string, type: 'success' | 'warning' | 'danger') => void;
   userEmail?: string;
+  openChatWithClient?: (clientId: string) => Promise<void>;
 }
 
-export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatProps) {
+export function RealtimeChat({ cases, userId, push, userEmail, openChatWithClient }: RealtimeChatProps) {
   const { canViewChat, tier, activeRole } = useRole();
-  const [selectedCase, setSelectedCase] = useState<CaseInfo | null>(null);
+  const { selectedCase, setSelectedCase } = useCase();
   const [msgs, setMsgs] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -88,6 +79,11 @@ export function RealtimeChat({ cases, userId, push, userEmail }: RealtimeChatPro
   const startChatWithClient = async (client: any) => {
     setShowNewChatModal(false);
     setSearchQuery('');
+
+    if (openChatWithClient) {
+      await openChatWithClient(client.id);
+      return;
+    }
 
     // 1. Search in local cases list for a GENERAL-CHAT case for this client
     const existingGeneralChat = cases.find(

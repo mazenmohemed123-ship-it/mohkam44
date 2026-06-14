@@ -374,6 +374,40 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
     loadEvents(row.id);
   };
 
+  const openChatWithClient = async (clientId: string) => {
+    // ابحث عن GENERAL-CHAT
+    const { data: generalChat } = await supabase
+      .from('cases')
+      .select('*')
+      .eq('lawyer_id', profile.id)
+      .eq('client_id', clientId)
+      .eq('case_number', 'GENERAL-CHAT')
+      .maybeSingle();
+
+    if (generalChat) {
+      setSelectedCase(generalChat);
+    } else {
+      // لو مفيش أنشئه
+      const { data: newCase } = await supabase
+        .from('cases')
+        .insert({
+          case_number: 'GENERAL-CHAT',
+          case_type: 'محادثة عامة',
+          judgment: 'نشط',
+          total_fees: 0,
+          admin_fees: 0,
+          lawyer_id: profile.id,
+          client_id: clientId,
+          client_name: '',
+          client_phone: '',
+        })
+        .select()
+        .single();
+      if (newCase) setSelectedCase(newCase);
+    }
+    setTab('chat');
+  };
+
   const handleGenerateInvoiceLink = (row: any) => {
     const fee = Number(row.total_fees) || 0;
     const link = `${origin}/pay/${user.id}/${row.case_number}?amount=${fee}`;
@@ -755,7 +789,13 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
             </Card>
           ) : (
             <div style={{ height: 'calc(100vh - 200px)' }}>
-              <RealtimeChat cases={cases} userId={user.id} push={push} userEmail={user.email} />
+              <RealtimeChat
+                cases={cases}
+                userId={user.id}
+                push={push}
+                userEmail={user.email}
+                openChatWithClient={openChatWithClient}
+              />
             </div>
           )
         )}
