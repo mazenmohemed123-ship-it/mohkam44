@@ -374,9 +374,8 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
     loadEvents(row.id);
   };
 
-  const openChatWithClient = async (clientId: string) => {
-    // ابحث عن GENERAL-CHAT
-    const { data: generalChat } = await supabase
+  const openClientChat = async (clientId: string) => {
+    const { data: chat } = await supabase
       .from('cases')
       .select('*')
       .eq('lawyer_id', profile.id)
@@ -384,11 +383,10 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
       .eq('case_number', 'GENERAL-CHAT')
       .maybeSingle();
 
-    if (generalChat) {
-      setSelectedCase(generalChat);
+    if (chat) {
+      setSelectedCase(chat);
     } else {
-      // لو مفيش أنشئه
-      const { data: newCase } = await supabase
+      const { data: newChat } = await supabase
         .from('cases')
         .insert({
           case_number: 'GENERAL-CHAT',
@@ -403,9 +401,8 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
         })
         .select()
         .single();
-      if (newCase) setSelectedCase(newCase);
+      if (newChat) setSelectedCase(newChat);
     }
-    setTab('chat');
   };
 
   const handleGenerateInvoiceLink = (row: any) => {
@@ -794,7 +791,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                 userId={user.id}
                 push={push}
                 userEmail={user.email}
-                openChatWithClient={openChatWithClient}
+                openChatWithClient={openClientChat}
               />
             </div>
           )
