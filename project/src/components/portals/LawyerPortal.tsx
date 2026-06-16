@@ -14,6 +14,7 @@ import { useLocale } from '../../hooks/useLocale';
 import { useRole, type Profile } from '../../context/RoleContext';
 import { useCase } from '../../context/CaseContext';
 import { supabase, registerPush } from '../../services/supabase';
+import { requestFcmToken } from '../../services/firebaseMessaging';
 import { sanitize } from '../../services/sanitize';
 import { isCaseCreationBlocked } from '../../services/caseQuotas';
 import { canAccessChat } from '../../services/chatQuotas';
@@ -1176,7 +1177,9 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                   if ('Notification' in window) {
                     const permission = await Notification.requestPermission();
                     if (permission === 'granted') {
-                      const token = await registerPush(user.id);
+                      // Prefer real FCM (push works even when the app is closed);
+                      // fall back to the legacy Web Push registration if FCM is not configured.
+                      const token = (await requestFcmToken(user.id)) || (await registerPush(user.id));
                       if (token) {
                         push('✓ تم تفعيل الإشعارات', 'success');
                       } else {
