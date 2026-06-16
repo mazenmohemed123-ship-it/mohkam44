@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Upload, FileText, Image, File, Download, Trash2, Lock, FolderOpen, HardDrive } from 'lucide-react';
-import { Card, Button, Badge } from '../atoms';
+import { Upload, FileText, Image, File, Download, Trash2, Lock, FolderOpen, HardDrive, ScanText, X } from 'lucide-react';
+import { Card, Button, Badge, Modal, Spinner } from '../atoms';
 import { supabase } from '../../services/supabase';
 import { useRole } from '../../context/RoleContext';
+import { ocrImage } from '../../services/aiTools';
 
 interface Document {
   id: string;
@@ -25,12 +26,33 @@ interface DocumentVaultProps {
 const SINGLE_FILE_LIMIT = 25 * 1024 * 1024; // 25MB per file
 
 export function DocumentVault({ caseId, userId, push }: DocumentVaultProps) {
-  const { canUploadFiles, dailyUploadLimitMB } = useRole();
+  const { canUploadFiles, dailyUploadLimitMB, tier } = useRole();
   const [docs, setDocs] = useState<Document[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dailyUsedMB, setDailyUsedMB] = useState(0);
+  const [ocrText, setOcrText] = useState<string | null>(null);
+  const [ocrBusy, setOcrBusy] = useState<string | null>(null);
+
+  // Extract text from an uploaded image via Hugging Face OCR (proxied through the
+  // ai-tools edge function). Available on Pro and Team.
+  const runOcr = async (doc: Document) => {
+    if (tier === 'free') { push('استخراج النص (OCR) متاح لباقات Pro و Team', 'warning'); return; }
+    setOcrBusy(doc.id);
+    try {
+      const { data } = supabase.storage.from('documents').getPublicUrl(doc.storage_path);
+      const resp = await fetch(data.publicUrl);
+      const blob = await resp.blob();
+      const res = await ocrImage(blob);
+      if (res.error) { push(res.error, 'warning'); return; }
+      setOcrText(res.text || 'لم يتم استخراج نص من الصورة.');
+    } catch {
+      push('تعذّر استخراج النص من الصورة', 'danger');
+    } finally {
+      setOcrBusy(null);
+    }
+  };
 
   const loadDocs = useCallback(async () => {
     const { data, error } = await supabase
@@ -257,6 +279,11 @@ export function DocumentVault({ caseId, userId, push }: DocumentVaultProps) {
                   </p>
                 </div>
                 <Badge color="default">{doc.file_type?.split('/').pop()?.toUpperCase() || 'FILE'}</Badge>
+                {doc.file_type?.startsWith('image/') && tier !== 'free' && (
+                  <Button size="sm" variant="ghost" disabled={ocrBusy === doc.id} onClick={() => runOcr(doc)}>
+                    {ocrBusy === doc.id ? <Spinner size={14} /> : <ScanText size={14} color="var(--navy)" />}
+                  </Button>
+                )}
                 <Button size="sm" variant="ghost" onClick={() => {
                   const { data } = supabase.storage.from('documents').getPublicUrl(doc.storage_path);
                   if (data?.publicUrl) window.open(data.publicUrl, '_blank');
@@ -270,6 +297,23 @@ export function DocumentVault({ caseId, userId, push }: DocumentVaultProps) {
             );
           })}
         </div>
+      )}
+
+      {ocrText !== null && (
+        <Modal onClose={() => setOcrText(null)}>
+          <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ScanText size={18} /> النص المستخرج
+            </h3>
+            <button onClick={() => setOcrText(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X size={18} />
+            </button>
+          </div>
+          <div style={{ padding: 20 }}>
+            <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.9, whiteSpace: 'pre-wrap', direction: 'rtl' }}>{ocrText}</p>
+            <Button fullWidth style={{ marginTop: 16 }} onClick={() => { navigator.clipboard?.writeText(ocrText).catch(() => {}); push('تم نسخ النص', 'success'); }}>نسخ النص</Button>
+          </div>
+        </Modal>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Scale, Mic, LogOut, ClipboardList, MessageSquare, User as UserIcon, Crown, Settings, FileText, Bell, Calculator, AlertTriangle, Calendar, Zap, CreditCard as Edit3, Clock, Check, Wallet, CreditCard, Users } from 'lucide-react';
+import { Scale, Mic, LogOut, ClipboardList, MessageSquare, User as UserIcon, Crown, Settings, FileText, Bell, Calculator, AlertTriangle, Calendar, Zap, CreditCard as Edit3, Clock, Check, Wallet, CreditCard, Users, Sparkles } from 'lucide-react';
 import { Button, Card, NotificationUI, Badge } from '../atoms';
 import { CasesTable } from '../tables/CasesTable';
 import { CaseTimeline } from '../cases/CaseTimeline';
@@ -8,6 +8,7 @@ import { TeamChat } from '../chat/TeamChat';
 import { TeamManagement } from '../team/TeamManagement';
 import { SubScreen } from '../pricing/SubScreen';
 import { VoicePanel } from '../voice/VoicePanel';
+import { AIAssistant } from '../ai/AIAssistant';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useLocale } from '../../hooks/useLocale';
 import { useRole, type Profile } from '../../context/RoleContext';
@@ -68,6 +69,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
 
   const [tab, setTab] = useState('cases');
   const [showVoice, setShowVoice] = useState(false);
+  const [showAI, setShowAI] = useState(false);
   const [cols, setCols] = useState(DEFAULT_COLS);
   const [emergencies, setEmergencies] = useState<any[]>([]);
   const [pendingAppointments, setPendingAppointments] = useState<any[]>([]);
@@ -1521,6 +1523,25 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
       </main>
 
       {showVoice && <VoicePanel cases={cases} lawyerId={effectiveLawyerId} onDone={() => loadCases(effectiveLawyerId)} onClose={() => setShowVoice(false)} push={push} />}
+
+      {/* AI assistant — available on Pro (summarize) and Team (legal assistant + summarize) */}
+      {tier !== 'free' && (
+        <button
+          onClick={() => setShowAI(true)}
+          title="المساعد الذكي"
+          style={{
+            position: 'fixed', bottom: 22, left: 22, zIndex: 900,
+            width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(135deg, var(--gold), #b8860b)', color: '#fff',
+            boxShadow: '0 8px 24px rgba(184,134,11,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <Sparkles size={24} />
+        </button>
+      )}
+      {showAI && (
+        <AIAssistant tier={tier} role={(profile.role as string) || 'lawyer'} push={push} onClose={() => setShowAI(false)} />
+      )}
     </div>
   );
 }
