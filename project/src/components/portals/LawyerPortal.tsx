@@ -296,9 +296,11 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
     };
   }, [effectiveLawyerId, push, loadAppointments]);
 
-  // Handle appointment approval
+  // Handle appointment approval — persists the decision AND leaves a durable trace
+  // (system message in the case chat + case_event in the timeline) so the response
+  // never "disappears" after the lawyer accepts/rejects.
   const handleAppointmentAction = async (apptId: string, action: 'accepted' | 'rejected' | 'rescheduled', alternativeTime?: string) => {
-    const { error } = await supabase
+    const { data: appointment, error } = await supabase
       .from('appointment_requests')
       .update({
         status: action,
@@ -307,12 +309,59 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
         responded_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', apptId);
+      .eq('id', apptId)
+      .select()
+      .single();
 
-    if (!error) {
-      setPendingAppointments((prev) => prev.filter((a) => a.id !== apptId));
-      push(action === 'accepted' ? '✓ تم قبول الموعد' : action === 'rejected' ? 'تم رفض الموعد' : 'تم اقتراح موعد بديل', action === 'accepted' ? 'success' : 'warning');
+    if (error || !appointment) {
+      push('خطأ في حفظ الرد على الموعد', 'danger');
+      return;
     }
+
+    setPendingAppointments((prev) => prev.filter((a) => a.id !== apptId));
+
+    const responderRole = (profile?.role as string) || 'lawyer';
+    const responderLabel = responderRole === 'secretary' ? 'السكرتارية'
+      : responderRole === 'partner' ? 'الشريك'
+      : responderRole === 'lawyer' ? 'المحامي'
+      : 'المكتب';
+
+    let messageText: string;
+    if (action === 'accepted') {
+      const timeInfo = alternativeTime
+        ? `الساعة ${alternativeTime}`
+        : (appointment.appointment_time ? `الساعة ${appointment.appointment_time}` : '');
+      messageText = `⚖️ تم قبول طلب موعدكم ليوم ${appointment.appointment_date} ${timeInfo} وجاري تثبيته بالجدول.`;
+    } else if (action === 'rescheduled') {
+      messageText = `📅 تم اقتراح موعد بديل${alternativeTime ? `: ${alternativeTime}` : ''}. برجاء التأكيد.`;
+    } else {
+      const altInfo = alternativeTime ? `\n📅 يمكن إعادة الحجز في الوقت المقترح: ${alternativeTime}` : '';
+      messageText = `❌ تم رفض طلب الموعد.${altInfo}\nيرجى التواصل لإعادة الحجز.`;
+    }
+
+    if (appointment.case_id) {
+      // Durable trace #1: signed system message inside the case chat
+      await supabase.from('messages').insert([{
+        case_id: appointment.case_id,
+        sender_id: user.id,
+        sender_role: responderRole,
+        message_text: `【${responderLabel}】${messageText}`,
+        room_type: 'client_chat',
+      }]);
+
+      // Durable trace #2: audit entry in the case timeline
+      await supabase.from('case_events').insert([{
+        case_id: appointment.case_id,
+        event_type: 'APPOINTMENT_RESPONSE',
+        event_description: `📅 ${action === 'accepted' ? 'تم قبول' : action === 'rejected' ? 'تم رفض' : 'تم اقتراح بديل'} طلب الموعد - ${appointment.appointment_date}`,
+        metadata: { appointment_id: apptId, status: action, alternative_time: alternativeTime || null },
+      }]);
+    }
+
+    // Refresh so the decision is reflected everywhere (accepted list, badges, etc.)
+    loadAppointments(effectiveLawyerId);
+
+    push(action === 'accepted' ? '✓ تم قبول الموعد' : action === 'rejected' ? 'تم رفض الموعد' : 'تم اقتراح موعد بديل', action === 'accepted' ? 'success' : 'warning');
   };
 
   useEffect(() => {

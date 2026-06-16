@@ -208,6 +208,10 @@ export function TeamChat({ masterLawyerId, userId, userRole, push, userEmail }: 
       console.log('internal msg:', { room_type: roomType, team_id, case_id, sender_id });
     }
 
+    // For peer (1:1) chat the RLS policy requires peer_target_id to be set,
+    // otherwise the INSERT is rejected and the private message is silently lost.
+    const peer_target_id = activeTab === 'private' ? (peerTarget?.id ?? null) : null;
+
     const { error } = await supabase.from('messages').insert([{
       sender_id: sender_id,
       sender_role: userRole,
@@ -215,6 +219,7 @@ export function TeamChat({ masterLawyerId, userId, userRole, push, userEmail }: 
       room_type: roomType,
       case_id: case_id,
       team_id: team_id,
+      peer_target_id,
       attachment_url: attachmentUrl,
       attachment_type: attachmentType,
     }]);

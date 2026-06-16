@@ -182,6 +182,30 @@ export function RealtimeChat({ cases, userId, push, userEmail, openChatWithClien
     };
 
     fetchMessages();
+
+    // Real-time subscription so both sent and received messages appear instantly.
+    chRef.current?.unsubscribe();
+    chRef.current = supabase
+      .channel(`client_chat:${selectedCase.id}:${Date.now()}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'messages',
+        filter: `case_id=eq.${selectedCase.id}`,
+      }, (payload) => {
+        const msg = payload.new as Message;
+        // Internal team chat must never leak into the client conversation view
+        if (msg.room_type === 'internal_team_chat') return;
+        setMsgs((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'messages',
+        filter: `case_id=eq.${selectedCase.id}`,
+      }, (payload) => {
+        const msg = payload.new as Message;
+        setMsgs((prev) => prev.map((m) => (m.id === msg.id ? msg : m)));
+      })
+      .subscribe();
+
+    return () => { chRef.current?.unsubscribe(); };
   }, [selectedCase]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
