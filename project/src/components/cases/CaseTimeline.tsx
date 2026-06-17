@@ -30,7 +30,7 @@ const eventTypeColors: Record<string, string> = {
   APPOINTMENT_REJECTED: 'var(--danger)',
 };
 
-export function CaseTimeline({ caseId, lawyerId, userId, activeRole, userName, push }: CaseTimelineProps) {
+export function CaseTimeline({ caseId, userId, activeRole, userName, push }: CaseTimelineProps) {
   const { respondAppointment, addEvent } = useCase();
   const [rejectFeedback, setRejectFeedback] = useState<Record<string, string>>({});
   const [showRejectInput, setShowRejectInput] = useState<string | null>(null);
