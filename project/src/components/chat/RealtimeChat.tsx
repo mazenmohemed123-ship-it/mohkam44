@@ -267,7 +267,8 @@ export function RealtimeChat({ cases, userId, push, userEmail, openChatWithClien
       room_type: 'client_chat',
     }]);
 
-    if (!error) setInput('');
+    // 23505 = duplicate id from a network retry; the message is already saved.
+    if (!error || (error as any).code === '23505') setInput('');
     else push('خطأ في الإرسال', 'danger');
   }, [input, selectedCase, userId, push, tier, userEmail, activeRole]);
 

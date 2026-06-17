@@ -458,8 +458,47 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       return data;
     }
 
-    // لو مفيش case — مش هننشئه، بس نعرض رسالة
-    console.warn('No GENERAL-CHAT case found for client');
+    // No general chat case yet — create one (RLS now allows a client to create
+    // their own GENERAL-CHAT case). Tolerate a concurrent create via 23505.
+    const { data: created, error: createErr } = await supabase
+      .from('cases')
+      .insert([{
+        case_number: 'GENERAL-CHAT',
+        client_name: profile?.full_name || 'موكل',
+        client_phone: profile?.phone_number || '',
+        case_type: 'محادثة عامة',
+        judgment: 'نشط',
+        total_fees: 0,
+        admin_fees: 0,
+        lawyer_id: lawyerId,
+        client_id: user.id,
+      }])
+      .select('*')
+      .single();
+
+    if (created) {
+      setSelectedCase(created);
+      setAggregatedCases(prev => prev.some(ac => ac.id === created.id) ? prev : [created, ...prev]);
+      return created;
+    }
+
+    // If a race created it first, fetch and use that row.
+    if (createErr && (createErr as any).code === '23505') {
+      const { data: existingRow } = await supabase
+        .from('cases')
+        .select('*')
+        .eq('lawyer_id', lawyerId)
+        .eq('case_number', 'GENERAL-CHAT')
+        .eq('client_id', user.id)
+        .maybeSingle();
+      if (existingRow) {
+        setSelectedCase(existingRow);
+        setAggregatedCases(prev => prev.some(ac => ac.id === existingRow.id) ? prev : [existingRow, ...prev]);
+        return existingRow;
+      }
+    }
+
+    console.warn('Could not ensure GENERAL-CHAT case', createErr);
     return null;
   };
 
@@ -915,8 +954,12 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       }]);
 
       if (insertErr) {
-        console.error('Error inserting message to database:', insertErr);
-        push('❌ خطأ في إرسال الرسالة', 'danger');
+        // 23505 = the row already exists (e.g. a network retry re-sent the same id).
+        // The message is saved and will arrive via realtime, so don't alarm the user.
+        if ((insertErr as any).code !== '23505') {
+          console.error('Error inserting message to database:', insertErr);
+          push('❌ خطأ في إرسال الرسالة', 'danger');
+        }
       }
     } finally {
       isSendingMsg.current = false;
@@ -1007,7 +1050,16 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
     if (error) {
       console.error('Error submitting appointment:', error);
-      push(t('appointmentError') + ': ' + error.message, 'danger');
+      // 23505 = this slot is already booked for the lawyer (unique dedup index).
+      if ((error as any).code === '23505') {
+        push(locale === 'ar'
+          ? '⚠️ هذا الموعد محجوز بالفعل، برجاء اختيار وقت آخر'
+          : locale === 'tr' ? 'Bu randevu zaten dolu, lütfen başka bir saat seçin'
+          : locale === 'fr' ? 'Ce créneau est déjà réservé, veuillez en choisir un autre'
+          : 'This time slot is already booked, please pick another time', 'warning');
+      } else {
+        push(t('appointmentError'), 'danger');
+      }
       return;
     }
 
