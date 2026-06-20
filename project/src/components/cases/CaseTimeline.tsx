@@ -30,7 +30,7 @@ const eventTypeColors: Record<string, string> = {
   APPOINTMENT_REJECTED: 'var(--danger)',
 };
 
-export function CaseTimeline({ caseId, lawyerId, userId, activeRole, userName, push }: CaseTimelineProps) {
+export function CaseTimeline({ caseId, userId, activeRole, userName, push }: CaseTimelineProps) {
   const { respondAppointment, addEvent } = useCase();
   const [rejectFeedback, setRejectFeedback] = useState<Record<string, string>>({});
   const [showRejectInput, setShowRejectInput] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export function CaseTimeline({ caseId, lawyerId, userId, activeRole, userName, p
       responderName: userName,
     });
     await addEvent(caseId, 'APPOINTMENT_ACCEPTED', `تم قبول موعد ${appt.appointment_date} الساعة ${appt.appointment_time}`);
-    push('✓ تم قبول الموعد وإرسال رسالة تأكيد للموكل', 'success');
+    push(' تم قبول الموعد وإرسال رسالة تأكيد للموكل', 'success');
     fetchTimelineData();
   };
 
@@ -164,7 +164,7 @@ export function CaseTimeline({ caseId, lawyerId, userId, activeRole, userName, p
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--warning)', marginBottom: 4 }}>
-                      📅 طلب حجز موعد
+                       طلب حجز موعد
                     </p>
                     <p style={{ fontSize: 12, color: 'var(--text)' }}>
                       {appt.appointment_date} — {appt.appointment_time}

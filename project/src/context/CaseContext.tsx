@@ -274,12 +274,12 @@ export function CaseProvider({ children }: { children: ReactNode }) {
         const timeInfo = options?.alternativeTime
           ? `الساعة ${options.alternativeTime}`
           : (appointment.appointment_time ? `الساعة ${appointment.appointment_time}` : '');
-        messageText = `⚖️ تم قبول طلب موعدكم ليوم ${appointment.appointment_date} ${timeInfo} وجاري تثبيته بالجدول.`;
+        messageText = ` تم قبول طلب موعدكم ليوم ${appointment.appointment_date} ${timeInfo} وجاري تثبيته بالجدول.`;
       } else {
         const altInfo = options?.alternativeTime
-          ? `\n📅 يمكن إعادة الحجز في الوقت المقترح: ${options.alternativeTime}`
+          ? `\n يمكن إعادة الحجز في الوقت المقترح: ${options.alternativeTime}`
           : '';
-        messageText = `❌ تم رفض طلب الموعد.${altInfo}\nيرجى التواصل لإعادة الحجز.`;
+        messageText = ` تم رفض طلب الموعد.${altInfo}\nيرجى التواصل لإعادة الحجز.`;
       }
 
       // Insert the message signed by the responder role
@@ -325,14 +325,14 @@ export function CaseProvider({ children }: { children: ReactNode }) {
       case_id: payload.caseId,
       sender_id: payload.createdBy,
       sender_role: 'client',
-      message_text: `【🚨 طلب طوارئ عاجل من الموكل】\n${payload.essentialNeeds}`,
+      message_text: `【 طلب طوارئ عاجل من الموكل】\n${payload.essentialNeeds}`,
     }]);
 
     // Add case event for audit
     await supabase.from('case_events').insert([{
       case_id: payload.caseId,
       event_type: 'EMERGENCY_TRIGGERED',
-      event_description: `🆘 تم إرسال طلب طوارئ عاجل`,
+      event_description: ` تم إرسال طلب طوارئ عاجل`,
       metadata: { emergency_id: emergency.id, essential_needs: payload.essentialNeeds },
     }]);
 

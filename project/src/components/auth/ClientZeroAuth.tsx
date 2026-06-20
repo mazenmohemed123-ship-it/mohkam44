@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Phone, Shield, Fingerprint, Users, Scale } from 'lucide-react';
+import { Phone, Shield, Fingerprint } from 'lucide-react';
 import { Button, Field, Card, Spinner, Badge } from '../atoms';
 import { supabase, generateDeviceFingerprint } from '../../services/supabase';
 import { isValidGlobalPhone } from '../../services/phoneValidation';
@@ -10,14 +10,6 @@ interface ClientZeroAuthProps {
   inviteToken?: string;
   onAuth: (user: any, profile: Profile) => void;
   onBack: () => void;
-}
-
-interface AggregatedCase {
-  id: string;
-  case_number: string;
-  client_name?: string;
-  lawyer_id: string;
-  lawyer_name?: string;
 }
 
 interface ClientSession {
@@ -35,148 +27,87 @@ export function ClientZeroAuth({ lawyerId, inviteToken, onAuth, onBack }: Client
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [verified, setVerified] = useState(false);
-  const [aggregatedCases, setAggregatedCases] = useState<AggregatedCase[]>([]);
-  const [showAggregated, setShowAggregated] = useState(false);
 
   const handleSubmit = async () => {
     setLoading(true);
     setError('');
+
     const phoneValidation = isValidGlobalPhone(phone);
     if (!phoneValidation.valid) {
       setError(phoneValidation.error || 'رقم الهاتف غير صالح');
       setLoading(false);
       return;
     }
+    if (!lawyerId) {
+      setError('الدخول متاح فقط عبر رابط المكتب الذي يرسله إليك المحامي.');
+      setLoading(false);
+      return;
+    }
 
     try {
-      // Look up all cases for this phone number (unified Zero-Auth)
-      const { data: existingCases } = await supabase
-        .from('cases')
-        .select('id, case_number, client_name, lawyer_id')
-        .eq('client_phone', phone);
+      // Office-gated entry: the phone must be registered on a case of this office
+      // (as the primary client phone or one of the case follower phones).
+      const { data, error: rpcErr } = await supabase.rpc('check_office_access', {
+        p_lawyer_id: lawyerId,
+        p_phone: phone,
+      });
+      const row = Array.isArray(data) ? data[0] : data;
 
-      if (existingCases && existingCases.length > 0) {
-        // Aggregate cases - get unique lawyers
-        const lawyerIds = [...new Set(existingCases.map((c: any) => c.lawyer_id))];
-        const { data: lawyers } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', lawyerIds);
-
-        const casesWithLawyer = existingCases.map((c: any) => ({
-          ...c,
-          lawyer_name: lawyers?.find((l: any) => l.id === c.lawyer_id)?.full_name,
-        }));
-
-        setAggregatedCases(casesWithLawyer);
-
-        // If multiple lawyers, show selection
-        if (lawyerIds.length > 1) {
-          setShowAggregated(true);
-          setLoading(false);
-          return;
-        }
-
-        // Single lawyer - auto-proceed
-        const primaryLawyerId = lawyerIds[0];
-        await proceedWithAuth(phone, primaryLawyerId, casesWithLawyer);
-      } else {
-        // No existing cases - use the lawyerId from URL or show error
-        if (!lawyerId) {
-          setError('لم يتم العثور على قضايا مسجلة بهذا الرقم. تأكد من الرقم أو استخدم رابط الدعوة من محاميك.');
-          setLoading(false);
-          return;
-        }
-        await proceedWithAuth(phone, lawyerId, []);
+      if (rpcErr || !row || !row.match_count) {
+        setError('رقم هاتفك غير مسجّل لدى هذا المكتب. برجاء التواصل مع المحامي لإضافة رقمك إلى القضية.');
+        setLoading(false);
+        return;
       }
+
+      await proceedWithAuth(phone, row.office_id || lawyerId, row.client_name);
     } catch {
       setError('حدث خطأ في الاتصال. حاول مرة أخرى.');
     }
     setLoading(false);
   };
 
-  const proceedWithAuth = async (phoneNumber: string, linkedLawyerId: string, cases: AggregatedCase[]) => {
+  const proceedWithAuth = async (phoneNumber: string, linkedLawyerId: string, clientNameIn?: string) => {
     const fingerprint = generateDeviceFingerprint();
     localStorage.setItem('mohkam_device_fp', fingerprint);
     document.cookie = `mohkam_client=1; path=/; max-age=31536000; samesite=strict`;
 
+    const clientName = clientNameIn || 'موكل ' + phoneNumber.slice(-4);
     let realUserId: string;
 
-    // Try Supabase Anonymous Auth first
     try {
       const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-      if (authError || !authData.user) {
-        throw new Error(authError?.message || 'Auth failed');
-      }
+      if (authError || !authData.user) throw new Error(authError?.message || 'Auth failed');
       realUserId = authData.user.id;
 
-      // تأكد إن الـ GENERAL-CHAT موجود أو أنشئه
+      // Ensure this visitor has their own GENERAL-CHAT with the office.
       const { data: existingCase } = await supabase
         .from('cases')
         .select('id, client_id')
         .eq('case_number', 'GENERAL-CHAT')
         .eq('lawyer_id', linkedLawyerId)
+        .eq('client_id', realUserId)
         .maybeSingle();
 
-      if (existingCase) {
-        // حدّث الـ client_id للـ ID الجديد
-        if (existingCase.client_id !== realUserId) {
-          await supabase
-            .from('cases')
-            .update({ client_id: realUserId })
-            .eq('id', existingCase.id);
-        }
-      } else {
-        // أنشئ GENERAL-CHAT جديد
+      if (!existingCase) {
         await supabase.from('cases').insert({
           case_number: 'GENERAL-CHAT',
-          client_name: cases[0]?.client_name || 'موكل',
+          client_name: clientName,
           client_phone: phoneNumber,
           case_type: 'محادثة عامة',
           judgment: 'نشط',
           total_fees: 0,
           admin_fees: 0,
           lawyer_id: linkedLawyerId,
-          client_id: realUserId
+          client_id: realUserId,
         });
-      }
-
-      // ابحث عن الموكل بالرقم والمحامي
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('phone_number', phoneNumber)
-        .eq('linked_lawyer_id', linkedLawyerId)
-        .eq('role', 'client')
-        .maybeSingle();
-
-      if (existing) {
-        // - حدّث جدول cases:
-        //   UPDATE cases SET client_id = realUserId WHERE client_id = existing.id
-        const { error: caseErr } = await supabase
-          .from('cases')
-          .update({ client_id: realUserId })
-          .eq('client_id', existing.id);
-        if (caseErr) throw caseErr;
-
-        // - حدّث جدول profiles:
-        //   DELETE FROM profiles WHERE id = existing.id
-        const { error: delErr } = await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', existing.id);
-        if (delErr) throw delErr;
       }
     } catch (err: any) {
       console.error('Supabase anonymous auth failed:', err);
-      setError('فشلت عملية المصادقة الآمنة. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
+      setError('فشلت عملية المصادقة الآمنة. تحقق من اتصال الإنترنت وحاول مرة أخرى.');
       setLoading(false);
       return;
     }
 
-    const clientName = cases[0]?.client_name || 'موكل ' + phoneNumber.slice(-4);
-
-    // Store session in localStorage for persistence
     const session: ClientSession = {
       userId: realUserId,
       phoneNumber,
@@ -186,47 +117,36 @@ export function ClientZeroAuth({ lawyerId, inviteToken, onAuth, onBack }: Client
     };
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
-    // Get lawyer info
     const { data: lawyer } = await supabase
       .from('profiles')
-      .select('id, full_name, avatar_url, phone_number, is_emergency_enabled')
+      .select('id, is_emergency_enabled')
       .eq('id', linkedLawyerId)
       .single();
 
-    if (lawyer) {
-      // Create or update profile in database with real UUID
-      const profile: Profile = {
-        id: realUserId,
-        full_name: clientName,
-        phone_number: phoneNumber,
-        role: 'client',
-        tier: 'free',
-        is_emergency_enabled: lawyer.is_emergency_enabled ?? true,
-        linked_lawyer_id: linkedLawyerId,
-        device_fingerprint: fingerprint,
-      };
+    const profile: Profile = {
+      id: realUserId,
+      full_name: clientName,
+      phone_number: phoneNumber,
+      role: 'client',
+      tier: 'free',
+      is_emergency_enabled: lawyer?.is_emergency_enabled ?? true,
+      linked_lawyer_id: linkedLawyerId,
+      device_fingerprint: fingerprint,
+    };
 
-      // Upsert profile to ensure it exists in database
-      await supabase.from('profiles').upsert([{
-        id: realUserId,
-        full_name: clientName,
-        phone_number: phoneNumber,
-        role: 'client',
-        tier: 'free',
-        is_emergency_enabled: lawyer.is_emergency_enabled ?? true,
-        linked_lawyer_id: linkedLawyerId,
-        device_fingerprint: fingerprint,
-      }], { onConflict: 'id' });
+    await supabase.from('profiles').upsert([{
+      id: realUserId,
+      full_name: clientName,
+      phone_number: phoneNumber,
+      role: 'client',
+      tier: 'free',
+      is_emergency_enabled: lawyer?.is_emergency_enabled ?? true,
+      linked_lawyer_id: linkedLawyerId,
+      device_fingerprint: fingerprint,
+    }], { onConflict: 'id' });
 
-      setVerified(true);
-      setTimeout(() => onAuth({ id: realUserId }, profile), 800);
-    }
-  };
-
-  const handleSelectLawyer = async (selectedLawyerId: string) => {
-    setLoading(true);
-    await proceedWithAuth(phone, selectedLawyerId, aggregatedCases);
-    setLoading(false);
+    setVerified(true);
+    setTimeout(() => onAuth({ id: realUserId }, profile), 800);
   };
 
   return (
@@ -244,9 +164,8 @@ export function ClientZeroAuth({ lawyerId, inviteToken, onAuth, onBack }: Client
         <button onClick={onBack} style={{
           background: 'none', border: 'none', color: 'var(--navy)', fontWeight: 700,
           cursor: 'pointer', marginBottom: 16, fontSize: 13, fontFamily: "'Cairo',sans-serif",
-          display: 'flex', alignItems: 'center', gap: 6,
         }}>
-          → رجوع
+          رجوع
         </button>
 
         {verified ? (
@@ -256,58 +175,6 @@ export function ClientZeroAuth({ lawyerId, inviteToken, onAuth, onBack }: Client
             </div>
             <h3 style={{ fontSize: 20, fontWeight: 900, color: 'var(--success)', marginBottom: 8 }}>تم التحقق بنجاح</h3>
             <p style={{ fontSize: 13, color: 'var(--muted)' }}>جاري تحويلك إلى بوابة الموكل...</p>
-          </div>
-        ) : showAggregated ? (
-          <div className="fade-up">
-            <div style={{ textAlign: 'center', marginBottom: 20 }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: '50%', margin: '0 auto 12px',
-                background: 'rgba(59,95,192,.1)', border: '2px solid var(--navy-mid)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Users size={24} color="var(--navy)" />
-              </div>
-              <h2 style={{ fontSize: 18, fontWeight: 900, color: 'var(--navy)', marginBottom: 4 }}>تم العثور على قضايا متعددة</h2>
-              <p style={{ fontSize: 12, color: 'var(--muted)' }}>لديك قضايا لدى {aggregatedCases.reduce((acc, c) => acc.add(c.lawyer_id), new Set()).size} محامين. اختر من ترغب في التواصل معه:</p>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {Object.entries(aggregatedCases.reduce((acc, c) => {
-                if (!acc[c.lawyer_id]) acc[c.lawyer_id] = { lawyer_name: c.lawyer_name, cases: [] };
-                acc[c.lawyer_id].cases.push(c);
-                return acc;
-              }, {} as Record<string, { lawyer_name?: string; cases: AggregatedCase[] }>)).map(([lid, data]) => (
-                <button
-                  key={lid}
-                  onClick={() => handleSelectLawyer(lid)}
-                  disabled={loading}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '14px 16px', borderRadius: 12,
-                    border: '1.5px solid var(--border)',
-                    background: '#fff', cursor: 'pointer',
-                    transition: 'all .2s', textAlign: 'right',
-                  }}
-                >
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10,
-                    background: 'var(--navy)', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <Scale size={18} color="var(--gold)" />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)' }}>{data.lawyer_name || 'محامي'}</p>
-                    <p style={{ fontSize: 11, color: 'var(--muted)' }}>{data.cases.length} قضية</p>
-                  </div>
-                  <Badge color="navy">{data.cases.map((c) => c.case_number).slice(0, 2).join(', ')}</Badge>
-                </button>
-              ))}
-            </div>
-
-            <Button variant="ghost" fullWidth onClick={() => setShowAggregated(false)} style={{ marginTop: 16 }}>
-              رجوع
-            </Button>
           </div>
         ) : (
           <>
@@ -319,8 +186,8 @@ export function ClientZeroAuth({ lawyerId, inviteToken, onAuth, onBack }: Client
               }}>
                 <Fingerprint size={28} color="var(--gold)" />
               </div>
-              <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--navy)', marginBottom: 4 }}>التحقق من الهوية</h2>
-              <p style={{ fontSize: 13, color: 'var(--muted)' }}>أدخل رقم هاتفك للدخول بدون كلمة مرور</p>
+              <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--navy)', marginBottom: 4 }}>الدخول إلى مكتبك القانوني</h2>
+              <p style={{ fontSize: 13, color: 'var(--muted)' }}>أدخل رقم هاتفك المسجّل لدى المكتب</p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -330,13 +197,13 @@ export function ClientZeroAuth({ lawyerId, inviteToken, onAuth, onBack }: Client
               </div>
 
               {error && (
-                <p style={{ fontSize: 12, color: 'var(--danger)', background: '#FDECEF', padding: '9px 13px', borderRadius: 9 }}>
-                  ❌ {error}
+                <p style={{ fontSize: 12, color: 'var(--danger)', background: '#FDECEF', padding: '10px 13px', borderRadius: 9, lineHeight: 1.7 }}>
+                  {error}
                 </p>
               )}
 
               <Button variant="gold" fullWidth onClick={handleSubmit} disabled={loading} style={{ marginTop: 4 }}>
-                {loading ? <><Spinner /> جاري التحقق...</> : '🔐 دخول بالهاتف'}
+                {loading ? <><Spinner /> جاري التحقق...</> : 'دخول'}
               </Button>
 
               <div style={{
@@ -344,13 +211,13 @@ export function ClientZeroAuth({ lawyerId, inviteToken, onAuth, onBack }: Client
                 background: '#F5F8FF', borderRadius: 10, fontSize: 11, color: 'var(--muted)',
               }}>
                 <Shield size={14} />
-                <span>بصمة الجهاز تُحفظ تلقائياً للدخول المريح مستقبلاً</span>
+                <span>لا يُسمح بالدخول إلا للأرقام المسجّلة لدى المكتب — لا حاجة لكلمة مرور</span>
               </div>
             </div>
 
             {inviteToken && (
               <div style={{ marginTop: 12 }}>
-                <Badge color="gold">🔗 دعوة محامي</Badge>
+                <Badge color="gold">دعوة من مكتب محاماة</Badge>
               </div>
             )}
           </>

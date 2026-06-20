@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Crown, Zap, Users, Lock, Check, Wallet, Shield, Globe } from 'lucide-react';
+import { Crown, Zap, Users, Lock, Check, Shield, Globe } from 'lucide-react';
 import { Button, Card, Badge, Spinner } from '../atoms';
 import { supabase } from '../../services/supabase';
 import { type Tier, useRole } from '../../context/RoleContext';
@@ -123,14 +123,18 @@ const TRANSLATIONS = {
         'نظام الإشعارات الفورية (Push Notifications)',
         'إدارة غير محدودة للقضايا والجلسات',
         'نظام الفواتير الرقمية وتحصيل الأتعاب',
+        ' تلخيص المستندات والقضايا بالذكاء الاصطناعي',
+        ' تفريغ التسجيلات الصوتية إلى نص (Whisper)',
+        ' استخراج النص من صور المستندات (OCR)',
       ],
       team: [
-        'كل مميزات باقة Pro',
+        'كل مميزات باقة Pro (بما فيها أدوات الذكاء الاصطناعي)',
         'إضافة عدد غير محدود من الموظفين (مساعد، سكرتير، محاسب)',
         'الشات الداخلي السري لأعضاء المكتب (Internal Team Chat)',
         'مصفوفة صلاحيات دقيقة لكل موظف',
         'رفع غير محدود للصور والملفات (بدون أي قيود)',
         'لوحة تقارير الأداء المالي للمكتب بالكامل',
+        ' المساعد القانوني الذكي — حصري للمحامين',
         'توفير قفل شاشة الأمان المتقدمة',
       ],
     },
@@ -168,14 +172,18 @@ const TRANSLATIONS = {
         'Push Notifications system',
         'Unlimited case & session management',
         'Digital invoicing & fee collection',
+        ' AI document & case summarization',
+        ' AI voice-to-text transcription (Whisper)',
+        ' Text extraction from document images (OCR)',
       ],
       team: [
-        'All Pro features included',
+        'All Pro features included (including AI tools)',
         'Unlimited staff accounts (assistant, secretary, accountant)',
         'Private Internal Team Chat for firm members',
         'Granular permissions matrix per employee',
         'Unlimited file & image uploads (no restrictions)',
         'Full firm financial performance dashboard',
+        ' AI Legal Assistant — lawyers only',
         'Advanced security screen lock',
       ],
     },
@@ -254,9 +262,10 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponError, setCouponError] = useState('');
 
-  /* Paymob Iframe state */
-  const [paymentKey, setPaymentKey] = useState('');
+  /* Paymob checkout state */
+  const [checkoutUrl, setCheckoutUrl] = useState('');
   const [showIframe, setShowIframe] = useState(false);
+  const [appliedCouponId, setAppliedCouponId] = useState<string | null>(null);
 
   /* Country-based pricing state */
   const [countryPricing, setCountryPricing] = useState<CountryPricing | null>(null);
@@ -300,7 +309,8 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
     setCouponCode('');
     setCouponDiscount(0);
     setCouponError('');
-    setPaymentKey('');
+    setCheckoutUrl('');
+    setAppliedCouponId(null);
     setShowIframe(false);
     setShowCheckout(true);
   };
@@ -346,8 +356,9 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
     }
     
     setCouponDiscount(couponData.discount_percent);
+    setAppliedCouponId(couponData.id);
     setCouponError('');
-    push(`تم تطبيق خصم ${couponData.discount_percent}% ✅`, 'success');
+    push(`تم تطبيق خصم ${couponData.discount_percent}% `, 'success');
 
     if (couponData.discount_percent === 100) {
       const expiresAt = new Date();
@@ -369,7 +380,7 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
 
       push(`تم تفعيل باقة ${
         couponData.tier_target === 'pro' ? 'Pro ⭐' : 'Team 🏆'
-      } مجاناً ✅`, 'success');
+      } مجاناً `, 'success');
 
       setProfile({
         ...profile,
@@ -381,50 +392,75 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
     }
   };
 
-  const basePrice = selectedTier?.priceUSD || 0;
-  const finalPrice = Math.round(
-    basePrice * (1 - couponDiscount / 100)
-  );
+  /* Resolve the real amount (in local major units) that the user actually sees and pays. */
+  const getLocalAmount = (t: TierInfo | null): number => {
+    if (!t) return 0;
+    if (countryPricing) {
+      if (t.id === 'pro') return countryPricing.pro;
+      if (t.id === 'team') return Math.round(countryPricing.pro * 2.5);
+    }
+    return Math.round(t.priceUSD * (curr?.rate || 1));
+  };
+
+  const baseAmount = getLocalAmount(selectedTier);
+  const finalAmount = Math.round(baseAmount * (1 - couponDiscount / 100));
 
   const handlePay = async () => {
-    if (finalPrice === 0) {
-      // كوبون 100% — تم التفعيل مجاناً
+    if (!selectedTier || finalAmount <= 0) {
+      // كوبون 100% — تم التفعيل مجاناً بالفعل في applyCoupon
       return;
     }
-    
+
+    setProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         push('يجب تسجيل الدخول أولاً', 'danger');
         return;
       }
-      
+
       const { data, error } = await supabase.functions.invoke(
         'create-checkout-session',
         {
           body: {
-            amount: finalPrice * 100, // Paymob بياخد قروش
+            // Major units — the edge function converts to cents (×100). Do NOT pre-multiply here.
+            amount: finalAmount,
             currency: pricing.currency,
             client_id: user.id,
-            tier: selectedTier?.id,
+            tier: selectedTier.id,
+            type: 'subscription_payment',
+            redirect_origin: window.location.origin,
+            metadata: {
+              coupon_id: appliedCouponId,
+              auto_renew: true,
+            },
             billing_data: {
               first_name: profile.full_name?.split(' ')[0] || 'Client',
               last_name: profile.full_name?.split(' ')[1] || 'User',
               email: user.email || 'NA',
               phone_number: profile.phone_number || 'NA',
-            }
-          }
+            },
+          },
         }
       );
-      
-      if (data?.payment_key) {
-        setPaymentKey(data.payment_key);
-        setShowIframe(true);
-      } else {
+
+      if (error || !data?.url) {
         push('خطأ في بدء الدفع', 'danger');
+        return;
+      }
+
+      // Sandbox returns an in-app URL (handled by App.tsx verification flow);
+      // real Paymob returns the hosted iframe URL.
+      if (data.url.startsWith(window.location.origin)) {
+        window.location.href = data.url;
+      } else {
+        setCheckoutUrl(data.url);
+        setShowIframe(true);
       }
     } catch {
       push('خطأ في الاتصال', 'danger');
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -568,11 +604,11 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                 <div style={{ background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)', borderRadius: 14, padding: 16, textAlign: 'center', border: '2px solid var(--gold)' }}>
                   <p style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, marginBottom: 4 }}>{t.amountDue}</p>
                   <p style={{ fontSize: 36, fontWeight: 900, color: 'var(--gold)', fontFamily: "'JetBrains Mono', monospace" }}>
-                    {convertPrice(finalPrice, selectedTier.id)}
+                    {finalAmount} {pricing.symbol}
                   </p>
                   {couponDiscount > 0 && (
                     <p style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'line-through' }}>
-                      {convertPrice(selectedTier.priceUSD, selectedTier.id)}
+                      {baseAmount} {pricing.symbol}
                     </p>
                   )}
                   <p style={{ fontSize: 10, color: 'var(--muted)' }}>{t.monthly}</p>
@@ -602,8 +638,8 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                   {couponError && <p style={{ color: 'var(--danger)', fontSize: 11, fontWeight: 700, marginTop: 4 }}>{couponError}</p>}
                   {couponDiscount > 0 && (
                     <p style={{color: '#16a34a', marginTop: 4}}>
-                      ✅ خصم {couponDiscount}% — السعر النهائي: 
-                      {finalPrice} {pricing.symbol}
+                       خصم {couponDiscount}% — السعر النهائي:
+                      {finalAmount} {pricing.symbol}
                     </p>
                   )}
                 </div>
@@ -617,20 +653,21 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                 {/* Pay Button */}
                 <button
                   onClick={handlePay}
-                  disabled={finalPrice === 0}
+                  disabled={finalAmount <= 0 || processing}
                   style={{
                     width: '100%',
                     padding: '14px',
-                    background: finalPrice === 0 ? '#16a34a' : '#f59e0b',
+                    background: finalAmount <= 0 ? '#16a34a' : '#f59e0b',
                     color: 'white',
                     border: 'none',
                     borderRadius: 10,
                     fontWeight: 'bold',
                     fontSize: 16,
-                    cursor: 'pointer',
+                    cursor: processing ? 'wait' : 'pointer',
+                    opacity: processing ? 0.7 : 1,
                   }}
                 >
-                  {finalPrice === 0 ? '✅ تم التفعيل مجاناً' : '💳 ادفع الآن'}
+                  {processing ? ' جاري المعالجة...' : finalAmount <= 0 ? ' تم التفعيل مجاناً' : ' ادفع الآن'}
                 </button>
 
                 <p style={{ fontSize: 9, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}>{t.terms}</p>
@@ -639,7 +676,7 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
           </Card>
         </div>
       )}
-      {showIframe && paymentKey && (
+      {showIframe && checkoutUrl && (
         <div style={{
           position: 'fixed', inset: 0,
           background: 'rgba(0,0,0,0.85)',
@@ -661,7 +698,7 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
             <button
               onClick={() => {
                 setShowIframe(false);
-                setPaymentKey('');
+                setCheckoutUrl('');
               }}
               style={{
                 position: 'absolute', top: 12, right: 12,
@@ -669,11 +706,12 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                 border: 'none', borderRadius: 8,
                 padding: '6px 14px', cursor: 'pointer',
                 fontWeight: 'bold', zIndex: 1,
-                fontSize: 16,
+                fontSize: 18,
+                lineHeight: 1,
               }}
-            >✕</button>
+            >×</button>
             <iframe
-              src={`https://accept.paymob.com/api/acceptance/iframes/${import.meta.env.VITE_PAYMOB_IFRAME_ID}?payment_token=${paymentKey}`}
+              src={checkoutUrl}
               style={{
                 width: '100%',
                 height: '100%',

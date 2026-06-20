@@ -28,11 +28,11 @@ interface TeamManagementProps {
 const FIRM_CAP = 6;
 
 const STAFF_ROLES = [
-  { id: 'assistant', label: 'مساعد قانوني', icon: '🤝' },
-  { id: 'secretary', label: 'سكرتير/ة', icon: '📋' },
-  { id: 'accountant', label: 'محاسب/ة', icon: '🧮' },
-  { id: 'lawyer', label: 'محامي مشارك', icon: '⚖️' },
-  { id: 'partner', label: 'شريك', icon: '🏛️' },
+  { id: 'assistant', label: 'مساعد قانوني', icon: '' },
+  { id: 'secretary', label: 'سكرتير/ة', icon: '' },
+  { id: 'accountant', label: 'محاسب/ة', icon: '' },
+  { id: 'lawyer', label: 'محامي مشارك', icon: '' },
+  { id: 'partner', label: 'شريك', icon: '' },
 ];
 
 const PERMISSIONS = [
@@ -77,11 +77,11 @@ export function TeamManagement({ masterLawyerId, tier, push }: TeamManagementPro
 
   const handleAddStaff = async () => {
     if (tier !== 'team') {
-      push('إضافة أعضاء الفريق متاحة في باقة Team فقط 🏆', 'warning');
+      push('إضافة أعضاء الفريق متاحة في باقة Team فقط ', 'warning');
       return;
     }
     if (staff.length >= FIRM_CAP) {
-      push(`⚠️ تم بلوغ الحد الأقصى (${FIRM_CAP} أعضاء). قم بالترقية لإضافة المزيد.`, 'warning');
+      push(` تم بلوغ الحد الأقصى (${FIRM_CAP} أعضاء). قم بالترقية لإضافة المزيد.`, 'warning');
       return;
     }
     if (!addName.trim() || !addEmail.trim() || !addPassword.trim()) {
@@ -113,7 +113,7 @@ export function TeamManagement({ masterLawyerId, tier, push }: TeamManagementPro
             can_reply_client_chats: addRole !== 'accountant',
           })
           .eq('id', existingUser.id);
-        push('تم إضافة العضو بنجاح ✅', 'success');
+        push('تم إضافة العضو بنجاح ', 'success');
         setAddName(''); setAddRole('assistant'); setAddPhone(''); setAddEmail(''); setAddPassword('');
         setShowAddForm(false);
         loadStaff();
@@ -170,7 +170,7 @@ export function TeamManagement({ masterLawyerId, tier, push }: TeamManagementPro
             await supabase.from('memberships').insert(memberships);
           }
 
-          push(`✓ تم إنشاء حساب ${addName}`, 'success');
+          push(` تم إنشاء حساب ${addName}`, 'success');
           setAddName(''); setAddRole('assistant'); setAddPhone(''); setAddEmail(''); setAddPassword('');
           setShowAddForm(false);
           loadStaff();
@@ -213,7 +213,7 @@ export function TeamManagement({ masterLawyerId, tier, push }: TeamManagementPro
 
     if (!error) {
       setStaff((prev) => prev.map((s) => s.id === staffId ? { ...s, ...editPerms } : s));
-      push('✓ تم تحديث الصلاحيات', 'success');
+      push(' تم تحديث الصلاحيات', 'success');
     } else {
       push('خطأ في تحديث الصلاحيات', 'danger');
     }
@@ -222,7 +222,7 @@ export function TeamManagement({ masterLawyerId, tier, push }: TeamManagementPro
   };
 
   const getRoleLabel = (role: string) => STAFF_ROLES.find((r) => r.id === role)?.label || role;
-  const getRoleIcon = (role: string) => STAFF_ROLES.find((r) => r.id === role)?.icon || '👤';
+  const getRoleIcon = (role: string) => STAFF_ROLES.find((r) => r.id === role)?.icon || '';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -239,11 +239,11 @@ export function TeamManagement({ masterLawyerId, tier, push }: TeamManagementPro
         {tier === 'team' ? (
           staff.length < 6 ? (
             <Button variant="gold" onClick={() => setShowAddForm(true)}>
-              ➕ إضافة عضو
+               إضافة عضو
             </Button>
           ) : (
             <p style={{color:'#94a3b8', fontSize:12, textAlign:'center'}}>
-              ✋ وصلت للحد الأقصى (6 أعضاء)
+               وصلت للحد الأقصى (6 أعضاء)
             </p>
           )
         ) : null}

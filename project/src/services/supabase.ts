@@ -25,14 +25,17 @@ export async function registerPush(userId: string) {
   }
 }
 
-export async function sendPushToClient(clientId: string, title: string, body: string) {
+export async function sendPushToClient(userId: string, title: string, body: string) {
+  // Deliver via FCM (works even when the recipient's app/tab is closed).
   try {
-    const { data } = await supabase.from('profiles').select('fcm_token').eq('id', clientId).single();
-    if (data?.fcm_token) {
-      // In production: send token to Supabase Edge Function -> FCM
-    }
-    if (Notification.permission === 'granted') {
-      new Notification(title, { body, icon: '/icon.png' });
+    await supabase.functions.invoke('send-notification', { body: { userId, title, body } });
+  } catch {
+    // edge function not configured / network error — fall back to a local notification
+  }
+  // Local foreground notification for the sender's own device, when permitted.
+  try {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/icon-192.png' });
     }
   } catch {
     // silent

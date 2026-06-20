@@ -1,22 +1,23 @@
 import { useState, useRef } from 'react';
-import { Mic, MicOff, Type, X, RefreshCw, Save, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, Type, X, RefreshCw, Save, AlertCircle, Upload } from 'lucide-react';
 import { Button, Field, Modal, Spinner } from '../atoms';
 import { supabase, sendPushToClient } from '../../services/supabase';
 import { detectIntent, extractCaseData, type ParsedVoice } from '../../services/voiceParser';
 import { sanitize } from '../../services/sanitize';
 import { isCaseCreationBlocked } from '../../services/caseQuotas';
 import { useRole } from '../../context/RoleContext';
+import { transcribeAudio } from '../../services/aiTools';
 
 const voiceLangs = [
-  { code: 'ar', label: '🇪🇬 عربي' },
-  { code: 'ar_ma', label: '🇲🇦 دارجة' },
-  { code: 'ar_sa', label: '🇸🇦 سعودي' },
-  { code: 'fr', label: '🇫🇷 Français' },
-  { code: 'en', label: '🇬🇧 English' },
-  { code: 'tr', label: '🇹🇷 Türkçe' },
-  { code: 'it', label: '🇮🇹 Italiano' },
-  { code: 'es', label: '🇪🇸 Español' },
-  { code: 'de', label: '🇩🇪 Deutsch' },
+  { code: 'ar', label: ' عربي' },
+  { code: 'ar_ma', label: ' دارجة' },
+  { code: 'ar_sa', label: ' سعودي' },
+  { code: 'fr', label: ' Français' },
+  { code: 'en', label: ' English' },
+  { code: 'tr', label: ' Türkçe' },
+  { code: 'it', label: ' Italiano' },
+  { code: 'es', label: ' Español' },
+  { code: 'de', label: ' Deutsch' },
 ];
 
 const getLangCode = (locale: string) => {
@@ -52,7 +53,21 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
   const [fields, setFields] = useState<Partial<ParsedVoice>>({});
   const [saving, setSaving] = useState(false);
   const [voiceLang, setVoiceLang] = useState('ar');
+  const [transcribing, setTranscribing] = useState(false);
   const recRef = useRef<any>(null);
+
+  // High-accuracy transcription of an uploaded audio file via Hugging Face Whisper
+  // (proxied through the ai-tools edge function). Available on Pro and Team.
+  const handleAudioUpload = async (file: File) => {
+    if (tier === 'free') { push('التفريغ الصوتي الذكي متاح لباقات Pro و Team', 'warning'); return; }
+    setTranscribing(true);
+    const res = await transcribeAudio(file);
+    setTranscribing(false);
+    if (res.error) { push(res.error, 'warning'); return; }
+    changeMode('text');
+    setTextIn((prev) => (prev ? prev + '\n' : '') + (res.text || ''));
+    push('تم تفريغ الملف الصوتي ', 'success');
+  };
 
   const modeRef = useRef(mode);
   const changeMode = (newMode: 'idle' | 'listening' | 'preview' | 'text') => {
@@ -137,16 +152,16 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
         const { error } = await supabase.from('cases').update(payload).eq('id', result.existing.id);
         if (error) throw error;
         if (result.existing.client_id) await sendPushToClient(result.existing.client_id, 'تحديث على قضيتك', `تم تحديث قضية ${fields.client_name}: ${fields.judgment}`);
-        push(`✏️ تم تحديث قضية ${fields.client_name} — إشعار أُرسل`, 'warning');
+        push(` تم تحديث قضية ${fields.client_name} — إشعار أُرسل`, 'warning');
       } else {
         if (isCaseCreationBlocked(tier, cases.length)) {
-          push('⚠️ وصلت للحد الأقصى من القضايا لباقتك', 'warning');
+          push(' وصلت للحد الأقصى من القضايا لباقتك', 'warning');
           setSaving(false);
           return;
         }
         const { error } = await supabase.from('cases').insert([payload]);
         if (error) throw error;
-        push(`✨ تمت إضافة قضية ${fields.client_name}`, 'success');
+        push(` تمت إضافة قضية ${fields.client_name}`, 'success');
       }
       onDone();
       onClose();
@@ -174,6 +189,13 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
           <Mic size={18} /> {mode === 'preview' ? (result?.type === 'update' ? '✏️ تحديث قضية' : '✨ قضية جديدة') : 'إضافة / تحديث قضية'}
         </h3>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {mode !== 'preview' && tier !== 'free' && (
+            <label title="تفريغ ملف صوتي بدقة عالية (AI)" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, border: '1.5px solid var(--border)', cursor: transcribing ? 'wait' : 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--navy)', background: '#fff' }}>
+              <input type="file" accept="audio/*" style={{ display: 'none' }} disabled={transcribing}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAudioUpload(f); e.currentTarget.value = ''; }} />
+              {transcribing ? <Spinner size={14} /> : <Upload size={14} />} تفريغ صوتي
+            </label>
+          )}
           {mode !== 'preview' && (
             <Button size="sm" variant={mode === 'text' ? 'primary' : 'secondary'} onClick={() => changeMode(mode === 'text' ? 'idle' : 'text')}>
               {mode === 'text' ? <><Mic size={14} /> صوت</> : <><Type size={14} /> كتابة</>}
