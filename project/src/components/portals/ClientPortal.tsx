@@ -8,6 +8,7 @@ import { checkChatUploadQuota, getDailyChatUploadCount } from '../../services/ch
 import { useNotifications } from '../../hooks/useNotifications';
 import { sanitize, sanitizeLike } from '../../services/sanitize';
 import { useCase } from '../../context/CaseContext';
+import { ChatRoom } from '../chat/ChatRoom';
 import type { Profile } from '../../context/RoleContext';
 import { formatCurrency, type CurrencyCode } from '../../services/currency';
 import { v4 as uuidv4 } from 'uuid';
@@ -1202,6 +1203,22 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
           <div style={{ width: 36 }} />
         </header>
 
+        {activeChatTarget !== 'bot' && selectedCase ? (
+          <div style={{ flex: 1, minHeight: 0, padding: 10, display: 'flex' }}>
+            <ChatRoom
+              key={selectedCase.id}
+              userId={user.id}
+              userRole="client"
+              userName={profile?.full_name}
+              roomType="client_chat"
+              caseId={selectedCase.id}
+              headerTitle={activeChatLabel || 'المحادثة'}
+              headerSubtitle={t('liveChat')}
+              push={push}
+            />
+          </div>
+        ) : (
+        <>
         <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10, background: '#FAFBFE' }}>
           {activeChatTarget === 'bot' && (
             <div style={{ padding: '10px 14px', background: 'linear-gradient(135deg, #EFF6FF, #F0F9FF)', borderRadius: 10, border: '1px solid #BFDBFE', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -1214,7 +1231,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
               </div>
             </div>
           )}
-          {(activeChatTarget === 'bot' ? botMsgs : humanMsgs).map((msg) => {
+          {botMsgs.map((msg) => {
             const isEmergency = msg.isEmergency || msg.text.startsWith('🆘') || msg.text.includes('【حالة طوارئ') || msg.text.includes('【🚨 طلب طوارئ');
             const isSystem = msg.isSystem || msg.from === 'system' || msg.text.startsWith('【');
             const chatClass = msg.from === 'user' ? (isEmergency ? 'chat-emergency-sos' : 'chat-me') : (isSystem ? 'chat-system' : (isEmergency ? 'chat-emergency-sos' : 'chat-other'));
@@ -1276,6 +1293,8 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
           <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={activeChatTarget === 'bot' ? t('writeBot') : t('writeMsg')} dir={isRTL ? 'rtl' : 'ltr'} maxLength={2000} style={{ flex: 1, padding: '12px 16px', border: '1.5px solid var(--border)', borderRadius: 12, fontSize: 14, fontFamily: "'Cairo',sans-serif", outline: 'none', background: '#FAFBFE' }} onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.border = '1.5px solid var(--navy-mid)'; }} onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.border = '1.5px solid var(--border)'; }} />
           <Button onClick={() => send()} style={{ padding: '12px 20px', minWidth: 56 }}><Send size={18} /></Button>
         </div>
+        </>
+        )}
       </div>
     );
   }
