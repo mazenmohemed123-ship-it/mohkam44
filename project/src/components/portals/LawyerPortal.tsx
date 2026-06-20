@@ -457,13 +457,6 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
     }
   };
 
-  const handleGenerateInvoiceLink = (row: any) => {
-    const fee = Number(row.total_fees) || 0;
-    const link = `${origin}/pay/${user.id}/${row.case_number}?amount=${fee}`;
-    navigator.clipboard?.writeText(link);
-    push(`✓ تم نسخ رابط الدفع لقضية ${row.client_name || row.case_number}`, 'success');
-  };
-
   const toggleEmergencyAlerts = async () => {
     const newValue = !emergencyEnabled;
     const { error } = await supabase.from('profiles').update({ is_emergency_enabled: newValue }).eq('id', user.id);
@@ -820,11 +813,10 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
               onDelCol={(key) => setCols((p) => p.filter((c) => c.key !== key))}
               onRowClick={handleRowClick}
               selectedId={selectedCase?.id}
-              onGenerateInvoiceLink={handleGenerateInvoiceLink}
               onArchive={archiveCase}
               onDeleteCase={deleteCase}
             />
-            <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>💡 انقر مرتين على أي خلية لتعديلها · اضغط على صف لعرض التفاصيل</p>
+            <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>انقر مرتين على أي خلية لتعديلها · اضغط على صف لعرض التفاصيل</p>
           </div>
         )}
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, X, Copy, Link, Check, Lock, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, X, Check, Lock, AlertTriangle, Users, Archive, Phone } from 'lucide-react';
 import { Button, Modal } from '../atoms';
 import { useRole } from '../../context/RoleContext';
 import { isCaseCreationBlocked, TIER_CASE_LIMITS } from '../../services/caseQuotas';
@@ -25,7 +25,6 @@ interface CasesTableProps {
   onDelCol: (key: string) => void;
   onRowClick: (row: Row) => void;
   selectedId?: string;
-  onGenerateInvoiceLink: (row: Row) => void;
   onArchive: (id: string) => void;
   onDeleteCase: (id: string) => void;
 }
@@ -40,7 +39,6 @@ export function CasesTable({
   onDelCol,
   onRowClick,
   selectedId,
-  onGenerateInvoiceLink,
   onArchive,
   onDeleteCase,
 }: CasesTableProps) {
@@ -50,9 +48,33 @@ export function CasesTable({
   const [addColName, setAddColName] = useState('');
   const [showAddCol, setShowAddCol] = useState(false);
   const [hoveredCol, setHoveredCol] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
+  const [followersTarget, setFollowersTarget] = useState<Row | null>(null);
+  const [followerInput, setFollowerInput] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
   const cellRef = useRef<HTMLInputElement>(null);
+
+  const officeLink = (row: Row) => `${window.location.origin}/portal/lawyer/${row.lawyer_id}`;
+
+  const addFollowerPhone = () => {
+    if (!followersTarget) return;
+    const phone = followerInput.trim();
+    if (!phone) return;
+    const current: string[] = followersTarget.follower_phones || [];
+    if (current.includes(phone) || phone === followersTarget.client_phone) { setFollowerInput(''); return; }
+    if (current.length >= 10) return;
+    const next = [...current, phone];
+    onUpdate(followersTarget.id, { follower_phones: next });
+    setFollowersTarget({ ...followersTarget, follower_phones: next });
+    setFollowerInput('');
+  };
+
+  const removeFollowerPhone = (phone: string) => {
+    if (!followersTarget) return;
+    const next = (followersTarget.follower_phones || []).filter((p: string) => p !== phone);
+    onUpdate(followersTarget.id, { follower_phones: next });
+    setFollowersTarget({ ...followersTarget, follower_phones: next });
+  };
 
   useEffect(() => {
     if (editingCell && cellRef.current) cellRef.current.focus();
@@ -88,14 +110,6 @@ export function CasesTable({
       setAddColName('');
       setShowAddCol(false);
     }
-  };
-
-  const handleCopyLink = (row: Row) => {
-    const origin = window.location.origin;
-    const link = `${origin}/?join_lawyer=${row.lawyer_id}&client_invite_token=${row.case_number}`;
-    navigator.clipboard?.writeText(link);
-    setCopiedId(row.id);
-    setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
@@ -183,54 +197,26 @@ export function CasesTable({
                 <td>
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleCopyLink(row); }}
-                      title="نسخ رابط دعوة الموكل"
-                      style={{
-                        background: copiedId === row.id ? 'var(--success)' : 'transparent',
-                        border: copiedId === row.id ? 'none' : '1px solid var(--border)',
-                        borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        color: copiedId === row.id ? '#fff' : 'var(--muted)',
-                        transition: 'all .15s',
-                      }}
+                      onClick={(e) => { e.stopPropagation(); setFollowersTarget(row); setFollowerInput(''); setLinkCopied(false); }}
+                      title="متابعو القضية ورابط المكتب"
+                      style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--navy)' }}
                     >
-                      {copiedId === row.id ? <Check size={12} /> : <Copy size={12} />}
+                      <Users size={13} />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); onGenerateInvoiceLink(row); }}
-                      title="رابط دفع الفاتورة"
-                      style={{
-                        background: 'transparent', border: '1px solid var(--border)',
-                        borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center',
-                        color: 'var(--gold)',
-                      }}
-                    >
-                      <Link size={12} />
-                    </button>
-                    <button 
                       onClick={(e) => { e.stopPropagation(); onArchive(row.id); }}
                       title="أرشفة"
-                      style={{ background: '#f59e0b', color: 'white',
-                               border: 'none', borderRadius: 6, 
-                               padding: '4px 8px', cursor: 'pointer' }}
+                      style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--muted)' }}
                     >
-                      🗃️
+                      <Archive size={13} />
                     </button>
                     {(profile?.tier === 'pro' || profile?.tier === 'team') && (
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); onDeleteCase(row.id); }}
                         title="حذف نهائي"
-                        style={{ 
-                          background: '#ef4444', 
-                          color: 'white',
-                          border: 'none', 
-                          borderRadius: 6, 
-                          padding: '4px 8px', 
-                          cursor: 'pointer' 
-                        }}
+                        style={{ background: 'transparent', border: '1px solid rgba(239,68,68,.4)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--danger)' }}
                       >
-                        🗑️
+                        <Trash2 size={13} />
                       </button>
                     )}
                   </div>
@@ -305,6 +291,66 @@ export function CasesTable({
               </Button>
               <Button variant="ghost" fullWidth onClick={() => setDeleteTarget(null)}>إلغاء</Button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {followersTarget && (
+        <Modal onClose={() => setFollowersTarget(null)}>
+          <div style={{ padding: 22 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 900, color: 'var(--navy)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Users size={18} /> متابعو القضية
+            </h3>
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+              أضف حتى 10 أرقام هاتف للموكلين المسموح لهم بمتابعة هذه القضية. لن يتمكن أحد من الدخول إلا إذا كان رقمه مسجّلاً هنا أو كرقم الموكل الأساسي.
+            </p>
+
+            {/* Office link */}
+            <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 12, marginBottom: 16 }}>
+              <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--navy)', marginBottom: 8 }}>رابط المكتب (أرسله للموكل)</p>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <code style={{ flex: 1, fontSize: 10, background: '#fff', padding: '8px 10px', borderRadius: 6, color: 'var(--navy)', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', border: '1px solid var(--border)' }}>{officeLink(followersTarget)}</code>
+                <Button size="sm" variant="gold" onClick={() => { navigator.clipboard?.writeText(officeLink(followersTarget)); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); }}>
+                  {linkCopied ? <Check size={12} /> : 'نسخ'}
+                </Button>
+              </div>
+            </div>
+
+            {/* Primary client phone */}
+            {followersTarget.client_phone && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#F5F8FF', borderRadius: 8, marginBottom: 8 }}>
+                <Phone size={13} color="var(--navy)" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)', fontFamily: "'JetBrains Mono', monospace" }}>{followersTarget.client_phone}</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)', marginRight: 'auto' }}>الموكل الأساسي</span>
+              </div>
+            )}
+
+            {/* Follower phones */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+              {(followersTarget.follower_phones || []).map((p: string) => (
+                <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#fff', border: '1px solid var(--border)', borderRadius: 8 }}>
+                  <Phone size={13} color="var(--muted)" />
+                  <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{p}</span>
+                  <button onClick={() => removeFollowerPhone(p)} style={{ marginRight: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex' }}><X size={14} /></button>
+                </div>
+              ))}
+            </div>
+
+            {(followersTarget.follower_phones?.length || 0) < 10 ? (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={followerInput}
+                  onChange={(e) => setFollowerInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addFollowerPhone(); }}
+                  placeholder="+20 1X XXXX XXXX"
+                  dir="ltr"
+                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: "'JetBrains Mono', monospace" }}
+                />
+                <Button onClick={addFollowerPhone}><Plus size={14} /> إضافة</Button>
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: 'var(--danger)', textAlign: 'center' }}>وصلت للحد الأقصى (10 أرقام)</p>
+            )}
           </div>
         </Modal>
       )}

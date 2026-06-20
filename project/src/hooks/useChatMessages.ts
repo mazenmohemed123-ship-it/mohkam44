@@ -3,6 +3,9 @@ import { supabase } from '../services/supabase';
 import { sanitize } from '../services/sanitize';
 import { detectFileType, type ChatAttachment, type ChatMessage, type ChatRoomType } from '../services/chat/types';
 
+const byTime = (a: ChatMessage, b: ChatMessage) =>
+  new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+
 interface UseChatMessagesParams {
   userId: string;
   userRole?: string;
@@ -38,20 +41,17 @@ export function useChatMessages({
 
   const upsert = useCallback((incoming: ChatMessage) => {
     setMessages((prev) => {
-      let next = prev;
-      if (incoming.client_msg_key) {
-        next = next.filter((m) => !(m._optimistic && m.client_msg_key === incoming.client_msg_key));
-      }
-      const idx = next.findIndex((m) => m.id === incoming.id);
-      if (idx >= 0) {
-        const copy = [...next];
-        copy[idx] = { ...next[idx], ...incoming, attachments: incoming.attachments ?? next[idx].attachments };
-        next = copy;
-      } else {
-        next = [...next, incoming];
-      }
-      next = next.filter((m) => !m.deleted_at);
-      next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      // Drop ANY prior copy of this message — same id, or same client_msg_key (covers the
+      // optimistic bubble and any realtime echo). Guarantees a single copy per message.
+      let next = prev.filter((m) =>
+        m.id !== incoming.id &&
+        !(incoming.client_msg_key && m.client_msg_key && m.client_msg_key === incoming.client_msg_key),
+      );
+      // Preserve attachments already resolved for this id if the incoming one lacks them.
+      const prevSame = prev.find((m) => m.id === incoming.id || (incoming.client_msg_key && m.client_msg_key === incoming.client_msg_key));
+      const merged = { ...incoming, attachments: incoming.attachments ?? prevSame?.attachments ?? [] };
+      if (merged.deleted_at) return next.sort(byTime);
+      next = [...next, merged].sort(byTime);
       return next;
     });
   }, []);
