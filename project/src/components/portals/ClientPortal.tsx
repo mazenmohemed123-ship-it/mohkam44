@@ -4,14 +4,12 @@ import { Button, Card, Badge, Modal, NotificationUI } from '../atoms';
 import { supabase, sendPushToClient } from '../../services/supabase';
 import { useLocale } from '../../hooks/useLocale';
 import { checkFloodLimit } from '../../services/floodProtection';
-import { checkChatUploadQuota, getDailyChatUploadCount } from '../../services/chatQuotas';
 import { useNotifications } from '../../hooks/useNotifications';
 import { sanitize, sanitizeLike } from '../../services/sanitize';
 import { useCase } from '../../context/CaseContext';
 import { ChatRoom } from '../chat/ChatRoom';
 import type { Profile } from '../../context/RoleContext';
 import { formatCurrency, type CurrencyCode } from '../../services/currency';
-import { v4 as uuidv4 } from 'uuid';
 
 
 interface ClientPortalProps {
@@ -350,7 +348,6 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   const [lawyerInfo, setLawyerInfo] = useState<any>(null);
   const [lawyerProfile, setLawyerProfile] = useState<Profile | null>(null);
   const [botMsgs, setBotMsgs] = useState<ChatMsg[]>([]);
-  const [humanMsgs, setHumanMsgs] = useState<ChatMsg[]>([]);
   const { triggerEmergency } = useCase();
   const [input, setInput] = useState('');
   const [aggregatedCases, setAggregatedCases] = useState<CaseInfo[]>([]);
@@ -417,7 +414,6 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   const sheetRef = useRef<HTMLDivElement>(null);
 
   const endRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const chatDropdownRef = useRef<HTMLDivElement>(null);
   const isSendingMsg = useRef(false);
   const { list: notifList, push } = useNotifications();
@@ -686,80 +682,8 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     fetchPayments();
   }, [selectedCase?.id]);
 
-  /* Fetch initial messages and subscribe to new messages when case is selected */
-  const mapDbMsgToChatMsg = (msg: any): ChatMsg => {
-    const isSystemMessage = msg.message_text?.startsWith('【') || msg.sender_role === 'system';
-    const matchedMember = teamMembersRef.current.find(m => m.id === msg.sender_id);
-    const senderName = matchedMember ? matchedMember.full_name : '';
-    return {
-      id: msg.id,
-      from: (msg.sender_id === user?.id
-        ? 'user'
-        : isSystemMessage
-          ? 'system'
-          : ['owner', 'partner', 'lawyer'].includes(msg.sender_role || '')
-            ? 'lawyer'
-            : ['assistant', 'secretary', 'accountant', 'staff'].includes(msg.sender_role || '')
-              ? 'staff'
-              : 'lawyer') as 'lawyer' | 'staff' | 'user' | 'bot' | 'system',
-      staffName: senderName,
-      text: msg.message_text || '',
-      time: new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
-      attachment_url: msg.attachment_url,
-      attachment_type: msg.attachment_type,
-      isSystem: isSystemMessage,
-      isEmergency: msg.message_text?.includes('طوارئ') || msg.message_text?.includes('🆘'),
-      sender_id: msg.sender_id,
-      sender_role: msg.sender_role,
-    };
-  };
-
-  useEffect(() => {
-    if (!selectedCase?.id || !user?.id) return;
-
-    // جيب الرسائل القديمة الأول
-    supabase
-      .from('messages')
-      .select('*')
-      .eq('case_id', selectedCase.id)
-      .eq('room_type', 'client_chat')
-      .order('created_at', { ascending: true })
-      .then(({ data }) => {
-        if (data) {
-          setHumanMsgs(data.map(mapDbMsgToChatMsg));
-        }
-      });
-
-    // اشترك في الرسائل الجديدة
-    const channel = supabase
-      .channel(`chat-${selectedCase.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `case_id=eq.${selectedCase.id}`,
-        },
-        (payload) => {
-          const newMsg = payload.new as any;
-          if (newMsg.room_type !== 'client_chat') return;
-          setHumanMsgs(prev => {
-            if (prev.some(m => m.id === newMsg.id)) return prev;
-            return [...prev, mapDbMsgToChatMsg(newMsg)];
-          });
-        }
-      )
-      .subscribe((status) => {
-        console.log('Realtime status:', status);
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedCase?.id, user?.id]);
-
-
+  /* Human chat (messages, realtime, read receipts, typing, presence) is fully handled
+     by the shared <ChatRoom> component via the useChatMessages/useChatPresence hooks. */
 
   /* REAL-TIME APPOINTMENT STATUS SUBSCRIPTION */
   useEffect(() => {
@@ -784,7 +708,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     };
   }, [user.id, push, reconnectTrigger]);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [botMsgs, humanMsgs]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [botMsgs]);
 
   /* LOCAL BOT PROCESSING - No database inserts for bot inquiries */
   type Lang = 'ar' | 'en' | 'fr';
@@ -872,96 +796,22 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     return 'مش فاهم سؤالك 😅\nجرب:\n• إرسال رقم القضية\n• اكتب "مواعيد" للمواعيد\n• اكتب "طوارئ" للمساعدة';
   };
 
-  const send = async (attachment?: File) => {
-    const msgKey = `${user.id}-${Date.now()}`;
-    console.log('Sending message with key:', msgKey);
+  /* Local AI assistant (bot) only. The human chat with the lawyer/staff is handled
+     entirely by the shared <ChatRoom> component and its hooks. */
+  const send = async () => {
     if (isSendingMsg.current) return;
-    if (!input.trim() && !attachment) return;
+    if (!input.trim()) return;
     const { allowed, cooldownSeconds } = checkFloodLimit();
     if (!allowed) { push(`⚠️ إرسال سريع جداً! يرجى الانتظار ${cooldownSeconds} ثانية.`, 'warning'); return; }
 
     isSendingMsg.current = true;
     try {
-      // Tier-based quota check for file uploads
-      if (attachment && selectedCase) {
-        if (lawyerTier === 'free') {
-          push('مفيش رفع صور أو ملفات في الباقة المجانية للمحامي ⚠️', 'warning');
-          return;
-        }
-        const dailyCount = await getDailyChatUploadCount(selectedCase.id, lawyerInfo?.id || '');
-        if (lawyerTier === 'pro' && dailyCount >= 30) {
-          push('وصلت لحد الصور اليومي للمحامي', 'warning');
-          return;
-        }
-        const fileSizeMB = attachment.size / (1024 * 1024);
-        const quotaCheck = checkChatUploadQuota(lawyerProfile?.tier || 'free', dailyCount, fileSizeMB);
-        if (!quotaCheck.allowed) {
-          setQuotaWarning(quotaCheck.reason || 'تم تجاوز الحد');
-          return;
-        }
-      }
-
       const txt = input;
-      const userMsgTime = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-
-      let attachmentUrl: string | undefined;
-      let attachmentType: 'image' | 'video' | undefined;
-
-      // Handle file upload for human chat (not bot)
-      if (attachment && selectedCase && activeChatTarget !== 'bot') {
-        const path = `chat/${selectedCase.id}/${Date.now()}_${attachment.name}`;
-        const { error: uploadErr } = await supabase.storage.from('chat-attachments').upload(path, attachment);
-        if (!uploadErr) {
-          const { data } = supabase.storage.from('chat-attachments').getPublicUrl(path);
-          attachmentUrl = data?.publicUrl;
-          attachmentType = attachment.type.startsWith('image/') ? 'image' : attachment.type.startsWith('video/') ? 'video' : undefined;
-        } else {
-          console.error('Error uploading attachment:', uploadErr);
-          push('خطأ في رفع الملف', 'danger');
-          return;
-        }
-      }
-
-      const userMsg: ChatMsg = { id: 'u' + Date.now(), from: 'user', text: txt, time: userMsgTime, attachment_url: attachmentUrl, attachment_type: attachmentType };
-
-      /* LOCAL BOT MODE: Process entirely locally, no DB insert - TEXT ONLY */
-      if (activeChatTarget === 'bot') {
-        setBotMsgs((p) => [...p, userMsg]);
-        setInput('');
-        const reply = await botReply(txt);
-        setTimeout(() => setBotMsgs((p) => [...p, { id: 'b' + Date.now(), from: 'bot', text: reply, time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) }]), 420);
-        return;
-      }
-
-      /* REMOTE MODE: Insert to messages table for real-time chat with lawyer/staff */
-      if (!selectedCase) {
-        push('⚠️ لا توجد قضية نشطة لإرسال الرسالة إليها. يرجى الانتظار حتى يتم ربط حسابك بقضية.', 'warning');
-        return;
-      }
-
+      const now = () => new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      setBotMsgs((p) => [...p, { id: 'u' + Date.now(), from: 'user', text: txt, time: now() }]);
       setInput('');
-
-      // لما تبعت رسالة — متضيفش للـ state يدوياً
-      // سيب الـ Realtime subscription هو اللي يضيفها
-      const { error: insertErr } = await supabase.from('messages').insert([{
-        id: uuidv4(),
-        case_id: selectedCase.id,
-        sender_id: user.id,
-        sender_role: 'client',
-        message_text: sanitize(txt) || (attachment ? '📎 مرفق' : ''),
-        attachment_url: attachmentUrl,
-        attachment_type: attachmentType,
-        room_type: 'client_chat',
-      }]);
-
-      if (insertErr) {
-        // 23505 = the row already exists (e.g. a network retry re-sent the same id).
-        // The message is saved and will arrive via realtime, so don't alarm the user.
-        if ((insertErr as any).code !== '23505') {
-          console.error('Error inserting message to database:', insertErr);
-          push('❌ خطأ في إرسال الرسالة', 'danger');
-        }
-      }
+      const reply = await botReply(txt);
+      setTimeout(() => setBotMsgs((p) => [...p, { id: 'b' + Date.now(), from: 'bot', text: reply, time: now() }]), 420);
     } finally {
       isSendingMsg.current = false;
     }
@@ -1271,26 +1121,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
         </div>
 
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, background: '#fff', paddingBottom: 'env(safe-area-inset-bottom, 12px)' }}>
-          {/* File attachment button - only for human chat */}
-          {activeChatTarget !== 'bot' && (
-            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#F5F8FF', borderRadius: 12, cursor: 'pointer' }}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    send(file);
-                    e.target.value = '';
-                  }
-                }}
-                style={{ display: 'none' }}
-              />
-              <span style={{ fontSize: 20 }}>📷</span>
-            </label>
-          )}
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={activeChatTarget === 'bot' ? t('writeBot') : t('writeMsg')} dir={isRTL ? 'rtl' : 'ltr'} maxLength={2000} style={{ flex: 1, padding: '12px 16px', border: '1.5px solid var(--border)', borderRadius: 12, fontSize: 14, fontFamily: "'Cairo',sans-serif", outline: 'none', background: '#FAFBFE' }} onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.border = '1.5px solid var(--navy-mid)'; }} onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.border = '1.5px solid var(--border)'; }} />
+          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={t('writeBot')} dir={isRTL ? 'rtl' : 'ltr'} maxLength={2000} style={{ flex: 1, padding: '12px 16px', border: '1.5px solid var(--border)', borderRadius: 12, fontSize: 14, fontFamily: "'Cairo',sans-serif", outline: 'none', background: '#FAFBFE' }} onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.border = '1.5px solid var(--navy-mid)'; }} onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.border = '1.5px solid var(--border)'; }} />
           <Button onClick={() => send()} style={{ padding: '12px 20px', minWidth: 56 }}><Send size={18} /></Button>
         </div>
         </>
