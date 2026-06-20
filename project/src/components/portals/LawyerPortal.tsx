@@ -9,6 +9,7 @@ import { TeamManagement } from '../team/TeamManagement';
 import { SubScreen } from '../pricing/SubScreen';
 import { VoicePanel } from '../voice/VoicePanel';
 import { AIAssistant } from '../ai/AIAssistant';
+import { AnnouncementBanner } from '../common/AnnouncementBanner';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useLocale } from '../../hooks/useLocale';
 import { useRole, type Profile } from '../../context/RoleContext';
@@ -770,6 +771,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
       </div>
 
       <main style={{ flex: 1, padding: 20, maxWidth: 1200, width: '100%', margin: '0 auto' }}>
+        <AnnouncementBanner />
         {tab === 'cases' && (
           <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

@@ -8,6 +8,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { sanitize, sanitizeLike } from '../../services/sanitize';
 import { useCase } from '../../context/CaseContext';
 import { ChatRoom } from '../chat/ChatRoom';
+import { AnnouncementBanner } from '../common/AnnouncementBanner';
 import type { Profile } from '../../context/RoleContext';
 import { formatCurrency, type CurrencyCode } from '../../services/currency';
 
@@ -1170,6 +1171,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       </header>
 
       <main style={{ flex: 1, padding: 14, maxWidth: 560, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 24 }}>
+        <AnnouncementBanner />
         {/* Lawyer Card */}
         <Card style={{ overflow: 'hidden', padding: 0 }}>
           <div style={{ background: 'linear-gradient(135deg, var(--navy), var(--navy-light))', padding: '16px 18px', color: '#fff', display: 'flex', alignItems: 'center', gap: 14 }}>

@@ -11,6 +11,7 @@ import { supabase } from './services/supabase';
 import { Spinner } from './components/atoms';
 import type { Profile } from './context/RoleContext';
 import { useLocale } from './hooks/useLocale';
+import { InstallPrompt } from './components/common/InstallPrompt';
 import './styles/theme.css';
 
 type AppScreen = 'role_gate' | 'auth_lawyer' | 'auth_client';
@@ -365,6 +366,7 @@ export default function App() {
     <CaseProvider>
       <RoleProvider>
         <AppContent />
+        <InstallPrompt />
       </RoleProvider>
     </CaseProvider>
   );

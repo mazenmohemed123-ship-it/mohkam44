@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Search, Users, DollarSign, Check, X, Crown, Zap, Settings, AlertTriangle, LogOut, CreditCard as Edit3, Save, UserX, UserCheck, Ticket, Plus, Trash2, Scale } from 'lucide-react';
+import { Shield, Search, Users, DollarSign, Check, X, Crown, Zap, Settings, AlertTriangle, LogOut, CreditCard as Edit3, Save, UserX, UserCheck, Ticket, Plus, Trash2, Scale, Megaphone, Send } from 'lucide-react';
 import { Button, Badge, Spinner } from '../atoms';
 import { supabase } from '../../services/supabase';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -55,7 +55,28 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
     tier_target: 'pro' as 'pro' | 'team',
   });
 
+  /* Broadcast announcement state */
+  const [annTitle, setAnnTitle] = useState('');
+  const [annBody, setAnnBody] = useState('');
+  const [annAudience, setAnnAudience] = useState<'all' | 'lawyers'>('all');
+  const [annSending, setAnnSending] = useState(false);
+
   const { list: notifList, push } = useNotifications();
+
+  const postAnnouncement = async () => {
+    if (!annBody.trim()) return;
+    setAnnSending(true);
+    const { error } = await supabase.rpc('post_announcement', {
+      p_title: annTitle.trim() || null,
+      p_body: annBody.trim(),
+      p_audience: annAudience,
+    });
+    setAnnSending(false);
+    if (error) { push('تعذّر نشر الإعلان', 'danger'); return; }
+    push('تم نشر الإعلان بنجاح', 'success');
+    setAnnTitle('');
+    setAnnBody('');
+  };
 
   /* Access control: Mazen only */
   const ADMIN_EMAILS = [
@@ -347,6 +368,39 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
               </div>
             );
           })}
+        </div>
+
+        {/* Broadcast Announcement Panel */}
+        <div style={{ ...panel, padding: 24, marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <Megaphone size={18} color={GOLD} />
+            <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>إرسال إعلان</h3>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <input
+              placeholder="عنوان الإعلان (اختياري)"
+              value={annTitle}
+              onChange={(e) => setAnnTitle(e.target.value)}
+              style={{ ...inputStyle }}
+            />
+            <textarea
+              placeholder="نص الرسالة التي ستصل للمستخدمين..."
+              value={annBody}
+              onChange={(e) => setAnnBody(e.target.value)}
+              rows={3}
+              style={{ ...inputStyle, resize: 'vertical', fontFamily: "'Cairo', sans-serif" }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={label}>إرسال إلى</span>
+              <select value={annAudience} onChange={(e) => setAnnAudience(e.target.value as 'all' | 'lawyers')} style={{ ...inputStyle }}>
+                <option value="all" style={{ color: '#000' }}>كل المستخدمين</option>
+                <option value="lawyers" style={{ color: '#000' }}>المحامون فقط</option>
+              </select>
+              <Button variant="gold" onClick={postAnnouncement} disabled={annSending || !annBody.trim()} style={{ marginRight: 'auto' }}>
+                <Send size={14} /> {annSending ? 'جاري الإرسال…' : 'نشر الإعلان'}
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Global Configuration Panel */}
