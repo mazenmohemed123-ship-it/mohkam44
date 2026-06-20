@@ -52,10 +52,10 @@ interface TeamMember {
 
 /* Firm roles for Team plan dropdown */
 const FIRM_ROLES: Record<string, { label: string; icon: string }> = {
-  lawyer: { label: 'المحامي الأساسي', icon: '👨‍⚖️' },
-  secretary: { label: 'السكرتارية', icon: '📋' },
-  accountant: { label: 'الحسابات', icon: '🧮' },
-  assistant: { label: 'المساعد', icon: '🤝' },
+  lawyer: { label: 'المحامي الأساسي', icon: '' },
+  secretary: { label: 'السكرتارية', icon: '' },
+  accountant: { label: 'الحسابات', icon: '' },
+  assistant: { label: 'المساعد', icon: '' },
 };
 
 interface CaseInfo {
@@ -83,9 +83,9 @@ const DAYS_OF_WEEK = [
 
 /* Paymob payment channels */
 const PAYMOB_CHANNELS = [
-  { id: 'card', label: 'بطاقة ائتمانية', desc: 'فيزا / ماستركارد', icon: '💳', color: '#635BFF' },
-  { id: 'vodafone', label: 'فودافون كاش', desc: 'محفظة فودافون كاش', icon: '📱', color: '#E60000' },
-  { id: 'aman', label: 'أمان', desc: 'محفظة أمان الإلكترونية', icon: '🏦', color: '#00B4D8' },
+  { id: 'card', label: 'بطاقة ائتمانية', desc: 'فيزا / ماستركارد', icon: '', color: '#635BFF' },
+  { id: 'vodafone', label: 'فودافون كاش', desc: 'محفظة فودافون كاش', icon: '', color: '#E60000' },
+  { id: 'aman', label: 'أمان', desc: 'محفظة أمان الإلكترونية', icon: '', color: '#00B4D8' },
 ];
 
 /* CSS for collapsible details */
@@ -148,7 +148,7 @@ const TRANSLATIONS = {
     appointments: 'حجز موعد',
     appointmentsDesc: 'اختر يوماً ووقتاً لحجز موعد مع المحامي',
     submitAppointment: 'تأكيد الحجز',
-    appointmentSuccess: '✓ تم إرسال طلب الحجز بنجاح',
+    appointmentSuccess: ' تم إرسال طلب الحجز بنجاح',
     appointmentError: 'خطأ في إرسال طلب الحجز',
     selectDay: 'اختر اليوم',
     selectSlot: 'اختر الوقت',
@@ -164,7 +164,7 @@ const TRANSLATIONS = {
     adminFees: 'المصاريف:',
     paymentSuccess: 'تم الدفع بنجاح!',
     paymentFailed: 'فشلت عملية الدفع',
-    emergencySent: '🆘 تم إرسال نداء الطوارئ للمحامي بنجاح',
+    emergencySent: ' تم إرسال نداء الطوارئ للمحامي بنجاح',
     emergencyError: 'فشل إرسال نداء الطوارئ',
   },
   en: {
@@ -189,7 +189,7 @@ const TRANSLATIONS = {
     appointments: 'Book Appointment',
     appointmentsDesc: 'Choose a day and time to book an appointment',
     submitAppointment: 'Confirm Booking',
-    appointmentSuccess: '✓ Appointment request submitted successfully',
+    appointmentSuccess: ' Appointment request submitted successfully',
     appointmentError: 'Failed to submit appointment request',
     selectDay: 'Select Day',
     selectSlot: 'Select Time',
@@ -205,7 +205,7 @@ const TRANSLATIONS = {
     adminFees: 'Expenses:',
     paymentSuccess: 'Payment successful!',
     paymentFailed: 'Payment failed',
-    emergencySent: '🆘 Emergency alert sent to lawyer successfully',
+    emergencySent: ' Emergency alert sent to lawyer successfully',
     emergencyError: 'Failed to send emergency alert',
   },
   fr: {
@@ -230,7 +230,7 @@ const TRANSLATIONS = {
     appointments: 'Prendre Rendez-vous',
     appointmentsDesc: 'Choisissez un jour et une heure pour prendre rendez-vous',
     submitAppointment: 'Confirmer le RDV',
-    appointmentSuccess: '✓ Demande de rendez-vous envoyée avec succès',
+    appointmentSuccess: ' Demande de rendez-vous envoyée avec succès',
     appointmentError: 'Échec de l\'envoi de la demande',
     selectDay: 'Choisir le jour',
     selectSlot: 'Choisir l\'heure',
@@ -246,7 +246,7 @@ const TRANSLATIONS = {
     adminFees: 'Frais:',
     paymentSuccess: 'Paiement réussi !',
     paymentFailed: 'Échec du paiement',
-    emergencySent: '🆘 Alerte d\'urgence envoyée avec succès à l\'avocat',
+    emergencySent: ' Alerte d\'urgence envoyée avec succès à l\'avocat',
     emergencyError: 'Échec de l\'envoi de l\'alerte d\'urgence',
   },
   tr: {
@@ -271,7 +271,7 @@ const TRANSLATIONS = {
     appointments: 'Randevu Al',
     appointmentsDesc: 'Randevu almak için bir gün ve saat seçin',
     submitAppointment: 'Randevuyu Onayla',
-    appointmentSuccess: '✓ Randevu talebi başarıyla iletildi',
+    appointmentSuccess: ' Randevu talebi başarıyla iletildi',
     appointmentError: 'Randevu talebi gönderilemedi',
     selectDay: 'Gün Seçin',
     selectSlot: 'Saat Seçin',
@@ -287,7 +287,7 @@ const TRANSLATIONS = {
     adminFees: 'Masraflar:',
     paymentSuccess: 'Ödeme başarılı!',
     paymentFailed: 'Ödeme başarısız',
-    emergencySent: '🆘 Acil durum uyarısı avukata başarıyla iletildi',
+    emergencySent: ' Acil durum uyarısı avukata başarıyla iletildi',
     emergencyError: 'Acil durum uyarısı gönderilemedi',
   }
 };
@@ -695,11 +695,11 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
         setAppointmentStatus(appt);
         setShowAppointmentStatus(true);
         if (appt.status === 'accepted') {
-          push('✅ تم قبول طلب الموعد!', 'success');
+          push(' تم قبول طلب الموعد!', 'success');
         } else if (appt.status === 'rejected') {
-          push('❌ تم رفض طلب الموعد', 'danger');
+          push(' تم رفض طلب الموعد', 'danger');
         } else if (appt.status === 'rescheduled') {
-          push(`📅 اقتراح موعد بديل: ${appt.alternative_time}`, 'warning');
+          push(` اقتراح موعد بديل: ${appt.alternative_time}`, 'warning');
         }
       })
       .subscribe();
@@ -749,12 +749,12 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
         if (lang === 'en') return `✅ Found your case!\n\n📋 Number: ${sanitize(c.case_number)}\n👤 Name: ${sanitize(c.client_name || '')}\n⚖️ Type: ${c.case_type || '—'}\n📌 Judgment: ${c.judgment}\n💰 Fees: ${formatCurrency(Number(c.total_fees), lawyerCurrency)}\n📊 Expenses: ${formatCurrency(Number(c.admin_fees), lawyerCurrency)}`;
         if (lang === 'fr') return `✅ Dossier trouvé !\n\n📋 Numéro: ${sanitize(c.case_number)}\n👤 Nom: ${sanitize(c.client_name || '')}\n⚖️ Type: ${c.case_type || '—'}\n📌 Jugement: ${c.judgment}\n💰 Honoraires: ${formatCurrency(Number(c.total_fees), lawyerCurrency)}\n📊 Frais: ${formatCurrency(Number(c.admin_fees), lawyerCurrency)}`;
         if (lang === 'tr') return `✅ Davanız bulundu!\n\n📋 Numara: ${sanitize(c.case_number)}\n👤 İsim: ${sanitize(c.client_name || '')}\n⚖️ Tür: ${c.case_type || '—'}\n📌 Karar: ${c.judgment}\n💰 Ücretler: ${formatCurrency(Number(c.total_fees), lawyerCurrency)}\n📊 Masraflar: ${formatCurrency(Number(c.admin_fees), lawyerCurrency)}`;
-        return `✅ وجدت قضيتك!\n\n📋 الرقم: ${sanitize(c.case_number)}\n👤 الاسم: ${sanitize(c.client_name || '')}\n⚖️ النوع: ${c.case_type || '—'}\n📌 الحكم: ${c.judgment}\n💰 الأتعاب: ${formatCurrency(Number(c.total_fees), lawyerCurrency)}\n📊 المصاريف: ${formatCurrency(Number(c.admin_fees), lawyerCurrency)}`;
+        return ` وجدت قضيتك!\n\n الرقم: ${sanitize(c.case_number)}\n الاسم: ${sanitize(c.client_name || '')}\n النوع: ${c.case_type || '—'}\n الحكم: ${c.judgment}\n الأتعاب: ${formatCurrency(Number(c.total_fees), lawyerCurrency)}\n المصاريف: ${formatCurrency(Number(c.admin_fees), lawyerCurrency)}`;
       }
       if (lang === 'en') return `❌ No case found with number "${safeNum}"\nPlease double-check and try again.`;
       if (lang === 'fr') return `❌ Aucun dossier trouvé avec le numéro "${safeNum}"\nVeuillez vérifier et réessayer.`;
       if (lang === 'tr') return `❌ "${safeNum}" numaralı dava bulunamadı.\nLütfen kontrol edip tekrar deneyin.`;
-      return `❌ مش لاقي قضية بالرقم "${safeNum}"\nتأكد من الرقم وحاول تاني.`;
+      return ` مش لاقي قضية بالرقم "${safeNum}"\nتأكد من الرقم وحاول تاني.`;
     }
 
     // Greetings
@@ -762,7 +762,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       if (lang === 'en') return `Hello! 😊\nSend me your case number and I'll give you all the details.`;
       if (lang === 'fr') return `Bonjour ! 😊\nEnvoyez-moi le numéro de votre dossier et je vous donnerai tous les détails.`;
       if (lang === 'tr') return `Merhaba! 😊\nDava numaranızı gönderin, size tüm detayları vereyim.`;
-      return `وعليكم السلام! 😊\nأرسل رقم قضيتك وهديك كل التفاصيل.`;
+      return `وعليكم السلام! \nأرسل رقم قضيتك وهديك كل التفاصيل.`;
     }
 
     // Schedule / appointments
@@ -779,7 +779,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       if (lang === 'en') return "You're welcome! Best of luck 🙏";
       if (lang === 'fr') return "Je vous en prie ! Bonne chance 🙏";
       if (lang === 'tr') return "Rica ederim! Başarılar dilerim 🙏";
-      return 'وإياك! ربنا يوفقك 🙏';
+      return 'وإياك! ربنا يوفقك ';
     }
 
     // Emergency
@@ -787,14 +787,14 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       if (lang === 'en') return 'Press the red emergency button and your request will reach the lawyer immediately 🆘';
       if (lang === 'fr') return 'Appuyez sur le bouton d\'urgence rouge et votre demande parviendra à l\'avocat immédiatement 🆘';
       if (lang === 'tr') return 'Kırmızı acil durum butonuna basın, talebiniz avukata anında ulaşacaktır 🆘';
-      return 'اضغط على زر الطوارئ الأحمر وهيوصل طلبك للمحامي فوراً 🆘';
+      return 'اضغط على زر الطوارئ الأحمر وهيوصل طلبك للمحامي فوراً ';
     }
 
     // Fallback
     if (lang === 'en') return "I didn't quite understand that 😅\nTry:\n• Send your case number\n• Type \"schedule\" for office hours\n• Type \"emergency\" for help";
     if (lang === 'fr') return "Je n'ai pas bien compris 😅\nEssayez :\n• Envoyez le numéro de votre dossier\n• Tapez \"horaires\" pour les heures du cabinet\n• Tapez \"urgence\" pour de l'aide";
     if (lang === 'tr') return "Tam olarak anlayamadım 😅\nŞunları deneyin:\n• Dava numaranızı gönderin\n• Çalışma saatleri için \"schedule\" yazın\n• Yardım almak için \"emergency\" yazın";
-    return 'مش فاهم سؤالك 😅\nجرب:\n• إرسال رقم القضية\n• اكتب "مواعيد" للمواعيد\n• اكتب "طوارئ" للمساعدة';
+    return 'مش فاهم سؤالك \nجرب:\n• إرسال رقم القضية\n• اكتب "مواعيد" للمواعيد\n• اكتب "طوارئ" للمساعدة';
   };
 
   /* Local AI assistant (bot) only. The human chat with the lawyer/staff is handled
@@ -803,7 +803,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
     if (isSendingMsg.current) return;
     if (!input.trim()) return;
     const { allowed, cooldownSeconds } = checkFloodLimit();
-    if (!allowed) { push(`⚠️ إرسال سريع جداً! يرجى الانتظار ${cooldownSeconds} ثانية.`, 'warning'); return; }
+    if (!allowed) { push(` إرسال سريع جداً! يرجى الانتظار ${cooldownSeconds} ثانية.`, 'warning'); return; }
 
     isSendingMsg.current = true;
     try {
@@ -843,15 +843,15 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
   const copyInstaPayId = () => {
     if (lawyerPaymentInfo?.instapay_address) {
       navigator.clipboard.writeText(lawyerPaymentInfo.instapay_address);
-      push('✓ تم نسخ معرف InstaPay', 'success');
+      push(' تم نسخ معرف InstaPay', 'success');
     }
   };
 
   const sendEmergency = async () => {
     const { allowed, cooldownSeconds } = checkFloodLimit();
-    if (!allowed) { push(`⚠️ تم استخدام زر الطوارئ! يرجى الانتظار ${cooldownSeconds} ثانية.`, 'warning'); return; }
+    if (!allowed) { push(` تم استخدام زر الطوارئ! يرجى الانتظار ${cooldownSeconds} ثانية.`, 'warning'); return; }
     if (!selectedCase) {
-      push('⚠️ لا توجد قضية نشطة لإرسال طلب الطوارئ إليها. يرجى الانتظار حتى يتم ربط حسابك بقضية.', 'warning');
+      push(' لا توجد قضية نشطة لإرسال طلب الطوارئ إليها. يرجى الانتظار حتى يتم ربط حسابك بقضية.', 'warning');
       return;
     }
     if (emgText.trim()) {
@@ -864,7 +864,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
       if (success) {
         const lawyerId = urlLawyerId || profile?.linked_lawyer_id;
-        if (lawyerId) sendPushToClient(lawyerId, '🆘 طلب طوارئ عاجل!', emgText);
+        if (lawyerId) sendPushToClient(lawyerId, ' طلب طوارئ عاجل!', emgText);
       }
     }
     setEmgSent(true); setShowEmg(false);
@@ -905,7 +905,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       // 23505 = this slot is already booked for the lawyer (unique dedup index).
       if ((error as any).code === '23505') {
         push(locale === 'ar'
-          ? '⚠️ هذا الموعد محجوز بالفعل، برجاء اختيار وقت آخر'
+          ? ' هذا الموعد محجوز بالفعل، برجاء اختيار وقت آخر'
           : locale === 'tr' ? 'Bu randevu zaten dolu, lütfen başka bir saat seçin'
           : locale === 'fr' ? 'Ce créneau est déjà réservé, veuillez en choisir un autre'
           : 'This time slot is already booked, please pick another time', 'warning');
@@ -919,7 +919,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
       await supabase.from('case_events').insert([{
         case_id: selectedCase.id,
         event_type: 'APPOINTMENT_REQUESTED',
-        event_description: `📅 طلب حجز موعد: ${clientName} (${caseNumber}) - ${dayLabel} (${selectedSlot})`,
+        event_description: ` طلب حجز موعد: ${clientName} (${caseNumber}) - ${dayLabel} (${selectedSlot})`,
       }]);
     }
 
@@ -985,7 +985,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
   const selectStaffChat = async (member: TeamMember) => {
     if (lawyerTier === 'free') {
-      push('المحادثة المباشرة مع الموكلين غير مفعلة في باقة المحامي الحالية 🏆', 'warning');
+      push('المحادثة المباشرة مع الموكلين غير مفعلة في باقة المحامي الحالية ', 'warning');
       return;
     }
     setActiveChatTarget('staff');
@@ -1001,7 +1001,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
   const selectLawyerDirect = async () => {
     if (lawyerTier === 'free') {
-      push('المحادثة المباشرة مع الموكلين غير مفعلة في باقة المحامي الحالية 🏆', 'warning');
+      push('المحادثة المباشرة مع الموكلين غير مفعلة في باقة المحامي الحالية ', 'warning');
       return;
     }
     setActiveChatTarget('lawyer');
@@ -1161,10 +1161,10 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
               outline: 'none',
             }}
           >
-            <option value="ar" style={{ color: '#000' }}>🇸🇦 ع</option>
-            <option value="en" style={{ color: '#000' }}>🇬🇧 En</option>
-            <option value="fr" style={{ color: '#000' }}>🇫🇷 Fr</option>
-            <option value="tr" style={{ color: '#000' }}>🇹🇷 Tr</option>
+            <option value="ar" style={{ color: '#000' }}> ع</option>
+            <option value="en" style={{ color: '#000' }}> En</option>
+            <option value="fr" style={{ color: '#000' }}> Fr</option>
+            <option value="tr" style={{ color: '#000' }}> Tr</option>
           </select>
           <button onClick={onLogout} style={{ background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', padding: '6px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 12, fontFamily: "'Cairo',sans-serif", fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}><LogOut size={12} /> {t('logout')}</button>
         </div>
@@ -1176,7 +1176,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
         <Card style={{ overflow: 'hidden', padding: 0 }}>
           <div style={{ background: 'linear-gradient(135deg, var(--navy), var(--navy-light))', padding: '16px 18px', color: '#fff', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,.15)', border: '2px solid rgba(255,255,255,.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-              {LAWYER_AVATAR ? <img src={LAWYER_AVATAR} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 22 }}>👨‍⚖️</span>}
+              {LAWYER_AVATAR ? <img src={LAWYER_AVATAR} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Scale size={20} color="var(--gold)" />}
             </div>
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: 10, opacity: 0.6, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>محاميك</p>
@@ -1193,7 +1193,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
                   <div className="scale-in" style={{ position: 'absolute', top: '100%', right: 0, left: 0, zIndex: 50, background: '#fff', borderRadius: 12, border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(15,37,87,.15)', marginTop: 6, overflow: 'hidden', minWidth: 180 }}>
                     {/* Bot - Universal for ALL tiers */}
                     <button onClick={selectBotMode} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', background: activeChatTarget === 'bot' ? '#F5F8FF' : 'transparent', cursor: 'pointer', width: '100%', textAlign: 'right', transition: 'background .15s', fontFamily: "'Cairo',sans-serif", borderBottom: '1px solid var(--border)' }}>
-                      <span style={{ fontSize: 18 }}>🤖</span>
+                      
                       <div style={{ flex: 1 }}><p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>المساعد الذكي</p><p style={{ fontSize: 10, color: 'var(--muted)' }}>يعمل محلياً بدون انترنت</p></div>
                     </button>
 
@@ -1216,7 +1216,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
                     {/* Free/Pro tiers - Direct lawyer chat */}
                     {lawyerTier !== 'team' && (
                       <button onClick={selectLawyerDirect} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', background: 'transparent', cursor: 'pointer', width: '100%', textAlign: 'right', transition: 'background .15s', fontFamily: "'Cairo',sans-serif" }}>
-                        <span style={{ fontSize: 18 }}>👨‍⚖️</span><span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{LAWYER_NAME}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{LAWYER_NAME}</span>
                       </button>
                     )}
                   </div>
@@ -1315,7 +1315,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
         {(selectedCase || urlLawyerId || profile?.linked_lawyer_id) && (
           <>
             <Button variant="gold" fullWidth onClick={() => { setSheetOpen(true); setSelectedSlot(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-              <Calendar size={16} /> {apptSubmitted ? `✓ تم إرسال الطلب` : 'حجز موعد'}
+              <Calendar size={16} /> {apptSubmitted ? ` تم إرسال الطلب` : 'حجز موعد'}
             </Button>
 
             {showAppointmentStatus && appointmentStatus && (
@@ -1357,7 +1357,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
               <div style={{ width: 40, height: 4, background: 'var(--border)', borderRadius: 2, margin: '0 auto 16px' }} />
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <h3 style={{ fontSize: 18, fontWeight: 900, color: 'var(--navy)' }}>📅 حجز موعد</h3>
+                <h3 style={{ fontSize: 18, fontWeight: 900, color: 'var(--navy)' }}> حجز موعد</h3>
                 <button onClick={() => setSheetOpen(false)} style={{ background: 'var(--bg)', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
               </div>
 
@@ -1450,7 +1450,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
               {lawyerPaymentInfo.vodafone_cash_number && (
                 <div style={{ padding: '12px', background: '#FFF5F5', borderRadius: 12, border: '1px solid #FFE0E0' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: '#E60000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: '#fff', fontSize: 20 }}>📱</span></div>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: '#E60000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Wallet size={18} color="#fff" /></div>
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 13, fontWeight: 800, color: '#E60000' }}>فودافون كاش</p>
                       <p style={{ fontSize: 11, color: 'var(--muted)' }}>اضغط للتحويل مباشرة</p>
@@ -1472,7 +1472,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
               {lawyerPaymentInfo.instapay_address && (
                 <div style={{ padding: '12px', background: '#F5F8FF', borderRadius: 12, border: '1px solid #E0E8FF' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: '#635BFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: '#fff', fontSize: 20 }}>💳</span></div>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: '#635BFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CreditCard size={18} color="#fff" /></div>
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 13, fontWeight: 800, color: '#635BFF' }}>InstaPay</p>
                       <p style={{ fontSize: 11, color: 'var(--muted)' }}>نسخ المعرّف أو فتح التطبيق</p>
@@ -1490,7 +1490,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={copyInstaPayId} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#E0E8FF', color: '#635BFF', padding: '10px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}>
-                      📋 نسخ المعرّف
+                       نسخ المعرّف
                     </button>
                     <button onClick={() => {
                       try { openInstaPay(); } catch {
@@ -1499,7 +1499,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
                         push('لم يتم فتح InstaPay — تم نسخ المعرّف بدلاً', 'warning');
                       }
                     }} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#635BFF', color: '#fff', padding: '10px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}>
-                      🚀 فتح InstaPay
+                       فتح InstaPay
                     </button>
                   </div>
                 </div>
@@ -1509,7 +1509,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
               {lawyerPaymentInfo.bank_account_details && (lawyerPaymentInfo.bank_account_details.iban || lawyerPaymentInfo.bank_account_details.account_number) && (
                 <div style={{ padding: '12px', background: '#F8FCF8', borderRadius: 12, border: '1px solid #E8F4E8' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: '#008800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: '#fff', fontSize: 20 }}>🏦</span></div>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: '#008800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Wallet size={18} color="#fff" /></div>
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 13, fontWeight: 800, color: '#008800' }}>تحويل بنكي</p>
                       <p style={{ fontSize: 11, color: 'var(--muted)' }}>بيانات الحساب البنكي</p>
@@ -1520,7 +1520,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
                   {lawyerPaymentInfo.bank_account_details.iban && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
                       <p style={{ flex: 1, fontSize: 10, color: 'var(--text)', fontFamily: "'JetBrains Mono', monospace", direction: 'ltr' }}>{lawyerPaymentInfo.bank_account_details.iban}</p>
-                      <button onClick={() => { navigator.clipboard.writeText(lawyerPaymentInfo.bank_account_details!.iban!); push('تم نسخ IBAN', 'success'); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><span style={{ fontSize: 14 }}>📋</span></button>
+                      <button onClick={() => { navigator.clipboard.writeText(lawyerPaymentInfo.bank_account_details!.iban!); push('تم نسخ IBAN', 'success'); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}>نسخ</button>
                     </div>
                   )}
                 </div>
@@ -1541,7 +1541,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
           </div>
         ) : (
           <div className="fade-up" style={{ background: 'var(--success)', borderRadius: 16, padding: 18, color: '#fff', textAlign: 'center' }}>
-            <p style={{ fontWeight: 800, fontSize: 15 }}>✅ تم إرسال طلب الطوارئ</p>
+            <p style={{ fontWeight: 800, fontSize: 15 }}> تم إرسال طلب الطوارئ</p>
             <p style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>سيتواصل معك {LAWYER_NAME} في أقرب وقت</p>
           </div>
         ))}
@@ -1562,7 +1562,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
               fontWeight: 'bold',
             }}
           >
-            <span>📧</span>
+            <span></span>
             <span>الدعم الفني</span>
           </a>
         </div>
@@ -1573,13 +1573,13 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.72)', backdropFilter: 'blur(6px)', zIndex: 999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 16 }}>
           <Card className="slide-up" style={{ width: '100%', maxWidth: 500, padding: 26 }}>
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
-              <div style={{ fontSize: 50, marginBottom: 10 }}>🆘</div>
+              <div style={{ fontSize: 50, marginBottom: 10 }}></div>
               <h3 style={{ fontSize: 21, fontWeight: 900, color: 'var(--danger)', marginBottom: 6 }}>طلب طوارئ عاجل</h3>
               <p style={{ fontSize: 13, color: 'var(--muted)' }}>سيصل طلبك فوراً إلى {LAWYER_NAME}</p>
             </div>
             <textarea value={emgText} onChange={(e) => setEmgText(e.target.value)} rows={3} maxLength={500} placeholder={'اكتب احتياجاتك...'} style={{ width: '100%', padding: 14, border: '1.5px solid var(--border)', borderRadius: 12, fontSize: 13, resize: 'none', fontFamily: "'Cairo',sans-serif", outline: 'none', direction: 'rtl', marginBottom: 16, lineHeight: 1.7 }} />
             <div style={{ display: 'flex', gap: 10 }}>
-              <Button variant="danger" fullWidth style={{ padding: '14px 24px', fontSize: 15 }} onClick={sendEmergency}>🚨 إرسال الطلب الآن</Button>
+              <Button variant="danger" fullWidth style={{ padding: '14px 24px', fontSize: 15 }} onClick={sendEmergency}> إرسال الطلب الآن</Button>
               <Button variant="ghost" onClick={() => setShowEmg(false)}>إلغاء</Button>
             </div>
           </Card>
@@ -1595,7 +1595,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
 
           {paymentDone ? (
             <div className="fade-up" style={{ padding: 32, textAlign: 'center' }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+              <div style={{ fontSize: 48, marginBottom: 12 }}></div>
               <p style={{ fontWeight: 900, fontSize: 18, color: 'var(--success)', marginBottom: 8 }}>تمت عملية الدفع بنجاح</p>
               <p style={{ fontSize: 13, color: 'var(--muted)' }}>سيتم تحديث الفاتورة تلقائياً</p>
             </div>
@@ -1612,7 +1612,7 @@ export function ClientPortal({ user, profile, onLogout, urlLawyerId }: ClientPor
                   <button key={ch.id} onClick={() => setSelectedChannel(ch.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, border: selectedChannel === ch.id ? `2px solid ${ch.color}` : '1.5px solid var(--border)', background: selectedChannel === ch.id ? `${ch.color}08` : '#fff', cursor: 'pointer', transition: 'all .15s', textAlign: 'right' }}>
                     <span style={{ fontSize: 20, flexShrink: 0 }}>{ch.icon}</span>
                     <div style={{ flex: 1 }}><p style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>{ch.label}</p><p style={{ fontSize: 11, color: 'var(--muted)' }}>{ch.desc}</p></div>
-                    {selectedChannel === ch.id && <div style={{ width: 20, height: 20, borderRadius: '50%', background: ch.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span style={{ color: '#fff', fontSize: 12, fontWeight: 900 }}>✓</span></div>}
+                    {selectedChannel === ch.id && <div style={{ width: 20, height: 20, borderRadius: '50%', background: ch.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span style={{ color: '#fff', fontSize: 12, fontWeight: 900 }}></span></div>}
                   </button>
                 ))}
               </div>

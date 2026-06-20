@@ -123,9 +123,9 @@ const TRANSLATIONS = {
         'نظام الإشعارات الفورية (Push Notifications)',
         'إدارة غير محدودة للقضايا والجلسات',
         'نظام الفواتير الرقمية وتحصيل الأتعاب',
-        '🤖 تلخيص المستندات والقضايا بالذكاء الاصطناعي',
-        '🎙️ تفريغ التسجيلات الصوتية إلى نص (Whisper)',
-        '🔎 استخراج النص من صور المستندات (OCR)',
+        ' تلخيص المستندات والقضايا بالذكاء الاصطناعي',
+        ' تفريغ التسجيلات الصوتية إلى نص (Whisper)',
+        ' استخراج النص من صور المستندات (OCR)',
       ],
       team: [
         'كل مميزات باقة Pro (بما فيها أدوات الذكاء الاصطناعي)',
@@ -134,7 +134,7 @@ const TRANSLATIONS = {
         'مصفوفة صلاحيات دقيقة لكل موظف',
         'رفع غير محدود للصور والملفات (بدون أي قيود)',
         'لوحة تقارير الأداء المالي للمكتب بالكامل',
-        '⚖️ المساعد القانوني الذكي — حصري للمحامين',
+        ' المساعد القانوني الذكي — حصري للمحامين',
         'توفير قفل شاشة الأمان المتقدمة',
       ],
     },
@@ -172,9 +172,9 @@ const TRANSLATIONS = {
         'Push Notifications system',
         'Unlimited case & session management',
         'Digital invoicing & fee collection',
-        '🤖 AI document & case summarization',
-        '🎙️ AI voice-to-text transcription (Whisper)',
-        '🔎 Text extraction from document images (OCR)',
+        ' AI document & case summarization',
+        ' AI voice-to-text transcription (Whisper)',
+        ' Text extraction from document images (OCR)',
       ],
       team: [
         'All Pro features included (including AI tools)',
@@ -183,7 +183,7 @@ const TRANSLATIONS = {
         'Granular permissions matrix per employee',
         'Unlimited file & image uploads (no restrictions)',
         'Full firm financial performance dashboard',
-        '⚖️ AI Legal Assistant — lawyers only',
+        ' AI Legal Assistant — lawyers only',
         'Advanced security screen lock',
       ],
     },
@@ -358,7 +358,7 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
     setCouponDiscount(couponData.discount_percent);
     setAppliedCouponId(couponData.id);
     setCouponError('');
-    push(`تم تطبيق خصم ${couponData.discount_percent}% ✅`, 'success');
+    push(`تم تطبيق خصم ${couponData.discount_percent}% `, 'success');
 
     if (couponData.discount_percent === 100) {
       const expiresAt = new Date();
@@ -380,7 +380,7 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
 
       push(`تم تفعيل باقة ${
         couponData.tier_target === 'pro' ? 'Pro ⭐' : 'Team 🏆'
-      } مجاناً ✅`, 'success');
+      } مجاناً `, 'success');
 
       setProfile({
         ...profile,
@@ -638,7 +638,7 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                   {couponError && <p style={{ color: 'var(--danger)', fontSize: 11, fontWeight: 700, marginTop: 4 }}>{couponError}</p>}
                   {couponDiscount > 0 && (
                     <p style={{color: '#16a34a', marginTop: 4}}>
-                      ✅ خصم {couponDiscount}% — السعر النهائي:
+                       خصم {couponDiscount}% — السعر النهائي:
                       {finalAmount} {pricing.symbol}
                     </p>
                   )}
@@ -667,7 +667,7 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                     opacity: processing ? 0.7 : 1,
                   }}
                 >
-                  {processing ? '⏳ جاري المعالجة...' : finalAmount <= 0 ? '✅ تم التفعيل مجاناً' : '💳 ادفع الآن'}
+                  {processing ? ' جاري المعالجة...' : finalAmount <= 0 ? ' تم التفعيل مجاناً' : ' ادفع الآن'}
                 </button>
 
                 <p style={{ fontSize: 9, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}>{t.terms}</p>
@@ -706,9 +706,10 @@ export function SubScreen({ profile, push, caseCount = 0 }: SubScreenProps) {
                 border: 'none', borderRadius: 8,
                 padding: '6px 14px', cursor: 'pointer',
                 fontWeight: 'bold', zIndex: 1,
-                fontSize: 16,
+                fontSize: 18,
+                lineHeight: 1,
               }}
-            >✕</button>
+            >×</button>
             <iframe
               src={checkoutUrl}
               style={{

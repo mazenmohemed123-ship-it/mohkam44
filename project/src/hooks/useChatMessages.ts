@@ -147,7 +147,7 @@ export function useChatMessages({
 
       const client_msg_key = `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const nowIso = new Date().toISOString();
-      const baseText = clean || (hasFiles ? '📎 مرفق' : '');
+      const baseText = clean || (hasFiles ? 'مرفق' : '');
 
       // Optimistic bubble (reconciled by client_msg_key when the row echoes back).
       upsert({

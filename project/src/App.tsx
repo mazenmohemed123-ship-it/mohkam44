@@ -326,14 +326,14 @@ function AppContent() {
               )}
               {paymentStatus === 'success' && (
                 <>
-                  <div style={{ fontSize: 54, color: '#10B981', marginBottom: 16 }}>✓</div>
+                  <div style={{ fontSize: 54, color: '#10B981', marginBottom: 16 }}></div>
                   <h3 style={{ fontWeight: 800, fontSize: 20 }}>تم تأكيد الدفع بنجاح!</h3>
                   <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 8 }}>Payment successfully confirmed. Refreshing portal...</p>
                 </>
               )}
               {paymentStatus === 'failed' && (
                 <>
-                  <div style={{ fontSize: 54, color: '#EF4444', marginBottom: 16 }}>✗</div>
+                  <div style={{ fontSize: 54, color: '#EF4444', marginBottom: 16 }}></div>
                   <h3 style={{ fontWeight: 800, fontSize: 20 }}>فشلت عملية الدفع</h3>
                   <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 8 }}>Payment transaction failed or was cancelled.</p>
                 </>

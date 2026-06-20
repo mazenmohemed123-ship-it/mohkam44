@@ -104,7 +104,7 @@ export function DocumentVault({ caseId, userId, push }: DocumentVaultProps) {
 
     /* Check against remaining limit */
     if (dailyUploadLimitMB !== Infinity && (dailyUsedMB + totalBatchMB) > dailyUploadLimitMB) {
-      push(`⚠️ الحد اليومي للرفع ${formatLimit(dailyUploadLimitMB)}. متبقي: ${formatLimit(remainingMB)}`, 'warning');
+      push(` الحد اليومي للرفع ${formatLimit(dailyUploadLimitMB)}. متبقي: ${formatLimit(remainingMB)}`, 'warning');
       setUploading(false);
       return;
     }
@@ -136,7 +136,7 @@ export function DocumentVault({ caseId, userId, push }: DocumentVaultProps) {
         download_token: token,
       }]);
 
-      push(`✓ تم رفع ${file.name}`, 'success');
+      push(` تم رفع ${file.name}`, 'success');
     }
 
     await loadDocs();
@@ -244,7 +244,7 @@ export function DocumentVault({ caseId, userId, push }: DocumentVaultProps) {
         </p>
         {uploading && (
           <div style={{ marginTop: 8 }}>
-            <span style={{ fontSize: 12, color: 'var(--navy)', fontWeight: 700 }}>⏳ جاري الرفع...</span>
+            <span style={{ fontSize: 12, color: 'var(--navy)', fontWeight: 700 }}> جاري الرفع...</span>
           </div>
         )}
         {!canUpload && (

@@ -174,7 +174,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
       .in('role', ['lawyer', 'owner', 'partner']);
     
     await loadLawyers();
-    push(`تم تطبيق العمولة ${rate}% على الكل ✅`, 'success');
+    push(`تم تطبيق العمولة ${rate}% على الكل `, 'success');
   };
 
   const saveCustomCommission = async (lawyerId: string, rate: number) => {
@@ -184,7 +184,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
       .eq('id', lawyerId);
     await loadLawyers();
     setEditingCommission(null);
-    push('تم حفظ العمولة ✅', 'success');
+    push('تم حفظ العمولة ', 'success');
   };
 
   const toggleFreeze = async (lawyerId: string, currentState: boolean) => {
@@ -196,7 +196,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
 
     if (!error) {
       setLawyers(prev => prev.map(l => l.id === lawyerId ? { ...l, is_frozen: !currentState } : l));
-      push(!currentState ? '✓ Account frozen' : '✓ Account unfrozen', 'success');
+      push(!currentState ? ' Account frozen' : ' Account unfrozen', 'success');
     } else {
       push('Error updating account', 'danger');
     }
@@ -255,7 +255,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
 
     await loadLawyers();
     setProcessingAction(null);
-    push(`تم ترقية الباقة لـ ${days} يوم ✅`, 'success');
+    push(`تم ترقية الباقة لـ ${days} يوم `, 'success');
   };
 
   const loadCoupons = async () => {
@@ -280,7 +280,7 @@ export function AdminControlCenter({ user, onLogout }: AdminControlCenterProps) 
     });
     
     await loadCoupons();
-    push(`تم إنشاء كوبون ${newCoupon.code} ✅`, 'success');
+    push(`تم إنشاء كوبون ${newCoupon.code} `, 'success');
     setNewCoupon({ 
       code: '', discount_percent: 0, 
       max_uses: 1, expires_at: '', tier_target: 'pro' 

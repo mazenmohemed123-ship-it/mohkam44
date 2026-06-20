@@ -9,15 +9,15 @@ import { useRole } from '../../context/RoleContext';
 import { transcribeAudio } from '../../services/aiTools';
 
 const voiceLangs = [
-  { code: 'ar', label: '🇪🇬 عربي' },
-  { code: 'ar_ma', label: '🇲🇦 دارجة' },
-  { code: 'ar_sa', label: '🇸🇦 سعودي' },
-  { code: 'fr', label: '🇫🇷 Français' },
-  { code: 'en', label: '🇬🇧 English' },
-  { code: 'tr', label: '🇹🇷 Türkçe' },
-  { code: 'it', label: '🇮🇹 Italiano' },
-  { code: 'es', label: '🇪🇸 Español' },
-  { code: 'de', label: '🇩🇪 Deutsch' },
+  { code: 'ar', label: ' عربي' },
+  { code: 'ar_ma', label: ' دارجة' },
+  { code: 'ar_sa', label: ' سعودي' },
+  { code: 'fr', label: ' Français' },
+  { code: 'en', label: ' English' },
+  { code: 'tr', label: ' Türkçe' },
+  { code: 'it', label: ' Italiano' },
+  { code: 'es', label: ' Español' },
+  { code: 'de', label: ' Deutsch' },
 ];
 
 const getLangCode = (locale: string) => {
@@ -66,7 +66,7 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
     if (res.error) { push(res.error, 'warning'); return; }
     changeMode('text');
     setTextIn((prev) => (prev ? prev + '\n' : '') + (res.text || ''));
-    push('تم تفريغ الملف الصوتي ✅', 'success');
+    push('تم تفريغ الملف الصوتي ', 'success');
   };
 
   const modeRef = useRef(mode);
@@ -152,16 +152,16 @@ export function VoicePanel({ cases, lawyerId, onDone, onClose, push }: VoicePane
         const { error } = await supabase.from('cases').update(payload).eq('id', result.existing.id);
         if (error) throw error;
         if (result.existing.client_id) await sendPushToClient(result.existing.client_id, 'تحديث على قضيتك', `تم تحديث قضية ${fields.client_name}: ${fields.judgment}`);
-        push(`✏️ تم تحديث قضية ${fields.client_name} — إشعار أُرسل`, 'warning');
+        push(` تم تحديث قضية ${fields.client_name} — إشعار أُرسل`, 'warning');
       } else {
         if (isCaseCreationBlocked(tier, cases.length)) {
-          push('⚠️ وصلت للحد الأقصى من القضايا لباقتك', 'warning');
+          push(' وصلت للحد الأقصى من القضايا لباقتك', 'warning');
           setSaving(false);
           return;
         }
         const { error } = await supabase.from('cases').insert([payload]);
         if (error) throw error;
-        push(`✨ تمت إضافة قضية ${fields.client_name}`, 'success');
+        push(` تمت إضافة قضية ${fields.client_name}`, 'success');
       }
       onDone();
       onClose();

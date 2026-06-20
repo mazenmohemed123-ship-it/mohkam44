@@ -154,7 +154,7 @@ export function AuthPage({ onAuth, onBack }: AuthPageProps) {
 
           {error && (
             <p style={{ fontSize: 12, color: 'var(--danger)', background: '#FDECEF', padding: '9px 13px', borderRadius: 9 }}>
-              ❌ {error}
+               {error}
             </p>
           )}
 

@@ -137,7 +137,7 @@ export function Spinner({ size = 18, color = '#fff' }: { size?: number; color?: 
 /* ─── NotificationUI ─── */
 import { type NotificationItem } from '../hooks/useNotifications';
 
-const notifIcons: Record<string, string> = { success: '✓', warning: '⚠', danger: '🚨', info: 'ℹ' };
+const notifIcons: Record<string, string> = { success: '', warning: '', danger: '', info: '' };
 const notifColors: Record<string, string> = { success: 'var(--success)', warning: 'var(--warning)', danger: 'var(--danger)', info: 'var(--navy)' };
 
 export function NotificationUI({ list }: { list: NotificationItem[] }) {

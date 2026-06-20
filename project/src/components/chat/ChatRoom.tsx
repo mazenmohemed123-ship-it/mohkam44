@@ -136,7 +136,7 @@ export function ChatRoom({
                   ) : (
                     <>
                       {(m.attachments || []).map((a) => (
-                        <div key={a.id} style={{ marginBottom: m.message_text && m.message_text !== '📎 مرفق' ? 8 : 0 }}>
+                        <div key={a.id} style={{ marginBottom: m.message_text && m.message_text !== 'مرفق' ? 8 : 0 }}>
                           {a.file_type === 'image' && <img src={a.file_url} alt="" style={{ maxWidth: '100%', borderRadius: 8 }} />}
                           {a.file_type === 'video' && <video src={a.file_url} controls style={{ maxWidth: '100%', borderRadius: 8 }} />}
                           {(a.file_type === 'pdf' || a.file_type === 'file') && (
@@ -146,7 +146,7 @@ export function ChatRoom({
                           )}
                         </div>
                       ))}
-                      {m.message_text !== '📎 مرفق' && m.message_text}
+                      {m.message_text !== 'مرفق' && m.message_text}
                     </>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', marginTop: 4 }}>

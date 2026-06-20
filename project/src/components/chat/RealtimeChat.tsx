@@ -86,11 +86,11 @@ export function RealtimeChat({ cases, userId, push, openChatWithClient }: Realti
         }
         setSelectedCase(newCase);
       } else {
-        push('❌ خطأ في إنشاء المحادثة', 'danger');
+        push(' خطأ في إنشاء المحادثة', 'danger');
       }
     } catch (err) {
       console.error('Error starting chat:', err);
-      push('❌ خطأ في إنشاء المحادثة', 'danger');
+      push(' خطأ في إنشاء المحادثة', 'danger');
     }
   };
 

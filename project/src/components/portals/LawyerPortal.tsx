@@ -124,7 +124,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
       .from('cases')
       .update({ judgment: 'مؤرشف' })
       .eq('id', caseId);
-    push('تم أرشفة القضية ✅', 'success');
+    push('تم أرشفة القضية ', 'success');
     loadCases(effectiveLawyerId);
   };
 
@@ -140,7 +140,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
       .delete()
       .eq('id', caseId);
     
-    push('تم حذف القضية نهائياً 🗑️', 'success');
+    push('تم حذف القضية نهائياً ', 'success');
     loadCases(effectiveLawyerId);
   };
 
@@ -255,7 +255,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
           const newEmergency = { ...emg, client_name: caseData.client_name, client_phone: caseData.client_phone };
           setEmergencies((prev) => [newEmergency, ...prev]);
           setFlashAlert({ type: 'emergency', data: newEmergency });
-          push(`🆘 طلب طوارئ عاجل من ${caseData.client_name || 'موكل'}`, 'danger');
+          push(` طلب طوارئ عاجل من ${caseData.client_name || 'موكل'}`, 'danger');
           // Audio + vibration alert
           try {
             const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQwAPLHd+ZdxOQA4qt/7oHEsADu08vufWSgAN67p/KlcFgA0p+n6s10AADGi4/qjUgAIX5zc9qVJAP9YfNj0oUkA/1Z52fOkSwD/WoXS8qRQAP9fg9PxolEA/1qB0/GmVQD/YIDS86dWAP9cgNLwpVYA/1d/0vCmVwD/V3/S8KZZAP9YfNLwp1kA/1h80vCnWQD/WH3S8KdZAP9YfNLwp1kA/1h80vCnWQD//w==');
@@ -281,7 +281,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
         if (appt.status === 'pending') {
           setPendingAppointments((prev) => [appt, ...prev]);
           setFlashAlert({ type: 'appointment', data: appt });
-          push(`📅 طلب موعد جديد: ${appt.appointment_date}`, 'warning');
+          push(` طلب موعد جديد: ${appt.appointment_date}`, 'warning');
           // Play notification sound
           try {
             const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQwAPLHd+ZdxOQA4qt/7oHEsADu08vufWSgAN67p/KlcFgA0p+n6s10AADGi4/qjUgAIX5zc9qVJAP9YfNj0oUkA/1Z52fOkSwD/WoXS8qRQAP9fg9PxolEA/1qB0/GmVQD/YIDS86dWAP9cgNLwpVYA/1d/0vCmVwD/V3/S8KZZAP9YfNLwp1kA/1h80vCnWQD/WH3S8KdZAP9YfNLwp1kA/1h80vCnWQD//w==');
@@ -335,12 +335,12 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
       const timeInfo = alternativeTime
         ? `الساعة ${alternativeTime}`
         : (appointment.appointment_time ? `الساعة ${appointment.appointment_time}` : '');
-      messageText = `⚖️ تم قبول طلب موعدكم ليوم ${appointment.appointment_date} ${timeInfo} وجاري تثبيته بالجدول.`;
+      messageText = ` تم قبول طلب موعدكم ليوم ${appointment.appointment_date} ${timeInfo} وجاري تثبيته بالجدول.`;
     } else if (action === 'rescheduled') {
-      messageText = `📅 تم اقتراح موعد بديل${alternativeTime ? `: ${alternativeTime}` : ''}. برجاء التأكيد.`;
+      messageText = ` تم اقتراح موعد بديل${alternativeTime ? `: ${alternativeTime}` : ''}. برجاء التأكيد.`;
     } else {
-      const altInfo = alternativeTime ? `\n📅 يمكن إعادة الحجز في الوقت المقترح: ${alternativeTime}` : '';
-      messageText = `❌ تم رفض طلب الموعد.${altInfo}\nيرجى التواصل لإعادة الحجز.`;
+      const altInfo = alternativeTime ? `\n يمكن إعادة الحجز في الوقت المقترح: ${alternativeTime}` : '';
+      messageText = ` تم رفض طلب الموعد.${altInfo}\nيرجى التواصل لإعادة الحجز.`;
     }
 
     if (appointment.case_id) {
@@ -389,7 +389,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
         lawyer_id: effectiveLawyerId,
       };
       const newCase = await addCase(payload);
-      if (newCase) push('✨ تم إضافة قضية جديدة', 'success');
+      if (newCase) push(' تم إضافة قضية جديدة', 'success');
       else push('خطأ في الإضافة', 'danger');
     } finally {
       isCreatingCase.current = false;
@@ -408,7 +408,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
         if (c?.client_id) {
           await supabase.from('case_events').insert([{
             case_id: id, event_type: 'JUDGMENT_UPDATED',
-            event_description: `⚖️ تم تحديث قرار المحكمة إلى ${sanitize(safePatch.judgment)}`,
+            event_description: ` تم تحديث قرار المحكمة إلى ${sanitize(safePatch.judgment)}`,
           }]);
         }
       }
@@ -464,7 +464,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
     if (!error) {
       setEmergencyEnabled(newValue);
       setProfile((p) => p ? { ...p, is_emergency_enabled: newValue } : p);
-      push(newValue ? '✓ تم تفعيل استقبال طلبات الطوارئ' : 'تم إيقاف استقبال طلبات الطوارئ', 'success');
+      push(newValue ? ' تم تفعيل استقبال طلبات الطوارئ' : 'تم إيقاف استقبال طلبات الطوارئ', 'success');
     }
   };
 
@@ -510,7 +510,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
       }, { onConflict: 'lawyer_id' });
     if (!error) {
       setAvailability((prev) => ({ ...prev, time_slots: timeSlots }));
-      push('✓ تم حفظ جدول العمل', 'success');
+      push(' تم حفظ جدول العمل', 'success');
     } else {
       push('خطأ في حفظ الجدول', 'danger');
     }
@@ -522,7 +522,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
     if (!error) {
       const { data } = supabase.storage.from('documents').getPublicUrl(path);
       if (data?.publicUrl) setInstapayQRUrl(data.publicUrl);
-      push('✓ تم رفع صورة QR', 'success');
+      push(' تم رفع صورة QR', 'success');
     }
   };
 
@@ -545,7 +545,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
         bank_account_details: bankDetails,
         currency: currency,
       } : p);
-      push('✓ تم حفظ بيانات الدفع', 'success');
+      push(' تم حفظ بيانات الدفع', 'success');
     } else {
       push('خطأ في حفظ البيانات', 'danger');
     }
@@ -648,7 +648,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
             <>
               <AlertTriangle size={22} />
               <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 900, fontSize: 15 }}>🆘 طلب طوارئ عاجل!</p>
+                <p style={{ fontWeight: 900, fontSize: 15 }}> طلب طوارئ عاجل!</p>
                 <p style={{ fontSize: 12, opacity: 0.9 }}>
                   من: {flashAlert.data.client_name || 'موكل'} | {flashAlert.data.essential_needs?.slice(0, 50)}...
                 </p>
@@ -659,14 +659,14 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
             <>
               <Calendar size={22} />
               <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 900, fontSize: 15 }}>📅 طلب موعد جديد!</p>
+                <p style={{ fontWeight: 900, fontSize: 15 }}> طلب موعد جديد!</p>
                 <p style={{ fontSize: 12, opacity: 0.9 }}>
                   {flashAlert.data.appointment_date} | {flashAlert.data.appointment_time} | {flashAlert.data.reason?.slice(0, 30)}...
                 </p>
               </div>
               {/* Accept/Reject buttons for appointments */}
-              <button onClick={() => handleAppointmentAction(flashAlert.data.id, 'accepted')} style={{ background: '#22C55E', border: 'none', color: '#fff', padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 4 }}>✓ صح</button>
-              <button onClick={() => handleAppointmentAction(flashAlert.data.id, 'rejected')} style={{ background: '#EF4444', border: 'none', color: '#fff', padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 4 }}>✕ خطأ</button>
+              <button onClick={() => handleAppointmentAction(flashAlert.data.id, 'accepted')} style={{ background: '#22C55E', border: 'none', color: '#fff', padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 4 }}> صح</button>
+              <button onClick={() => handleAppointmentAction(flashAlert.data.id, 'rejected')} style={{ background: '#EF4444', border: 'none', color: '#fff', padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 4 }}> خطأ</button>
             </>
           )}
           <button onClick={() => setFlashAlert(null)} style={{
@@ -700,7 +700,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                   display: 'inline-flex',
                 }}
               >
-                <Badge color="orange">📅 {pendingAppointments.length} موعد معلق</Badge>
+                <Badge color="orange"> {pendingAppointments.length} موعد معلق</Badge>
               </button>
             )}
           </div>
@@ -738,10 +738,10 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
               outline: 'none',
             }}
           >
-            <option value="ar" style={{ color: '#000' }}>🇸🇦 ع</option>
-            <option value="en" style={{ color: '#000' }}>🇬🇧 En</option>
-            <option value="fr" style={{ color: '#000' }}>🇫🇷 Fr</option>
-            <option value="tr" style={{ color: '#000' }}>🇹🇷 Tr</option>
+            <option value="ar" style={{ color: '#000' }}> ع</option>
+            <option value="en" style={{ color: '#000' }}> En</option>
+            <option value="fr" style={{ color: '#000' }}> Fr</option>
+            <option value="tr" style={{ color: '#000' }}> Tr</option>
           </select>
           <Button size="sm" onClick={() => setShowVoice(true)} disabled={isFreeTierLocked} style={{ background: 'rgba(255,255,255,.12)', color: isFreeTierLocked ? 'rgba(255,255,255,.4)' : '#fff', border: '1px solid rgba(255,255,255,.2)', opacity: isFreeTierLocked ? 0.5 : 1 }}>
             <Mic size={14} /> إضافة قضية
@@ -802,7 +802,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                   transition: 'all 0.15s ease'
                 }}
               >
-                {showArchived ? '📋 القضايا النشطة' : '🗃️ الأرشيف'}
+                {showArchived ? ' القضايا النشطة' : ' الأرشيف'}
               </button>
             </div>
             <CasesTable
@@ -825,10 +825,10 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
         {tab === 'chat' && canViewChat && (
           !canAccessChat(tier) ? (
             <Card style={{ padding: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#F5F8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>💬</div>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#F5F8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}></div>
               <h3 style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 16 }}>المحادثة المباشرة مع الموكلين</h3>
               <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 400, lineHeight: 1.6 }}>ميزة الدردشة مع الموكلين في الوقت الفعلي غير متوفرة في باقتك الحالية. اشترك في Pro أو Team للدردشة مع موكليك مباشرة.</p>
-              <Button variant="gold" onClick={() => setTab('sub')}>👑 ترقية الباقة الآن</Button>
+              <Button variant="gold" onClick={() => setTab('sub')}> ترقية الباقة الآن</Button>
             </Card>
           ) : (
             <div style={{ height: 'calc(100vh - 200px)' }}>
@@ -874,7 +874,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
               <Card style={{ padding: 40, textAlign: 'center' }}>
                 <Users size={40} color="var(--border)" style={{ margin: '0 auto 12px' }} />
                 <h3 style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 16 }}>المحادثة الجماعية للفريق</h3>
-                <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>هذه الميزة متوفرة في باقة Team فقط 🏆</p>
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>هذه الميزة متوفرة في باقة Team فقط </p>
               </Card>
             )}
             {isMasterLawyer && (
@@ -939,13 +939,13 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                   border: '1px solid #ef4444',
                   borderRadius: 8, padding: 16, marginTop: 12
                 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 800, color: '#991b1b', marginBottom: 4 }}>⚠️ رصيد مستحق للمنصة</h3>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: '#991b1b', marginBottom: 4 }}> رصيد مستحق للمنصة</h3>
                   <p style={{fontSize: 24, fontWeight: 'bold', color: '#dc2626', marginBottom: 8}}>
                     {profile.commission_debt} ج.م
                   </p>
                   <p style={{ fontSize: 12, color: '#7f1d1d', marginBottom: 12 }}>يرجى سداد المبلغ المستحق للاستمرار في استخدام المنصة</p>
                   <Button variant="danger" size="sm" onClick={() => handlePayDebt()}>
-                    💳 سداد الآن
+                     سداد الآن
                   </Button>
                 </div>
               )}
@@ -979,7 +979,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                           if (!error) {
                             const currentDebt = (profile as any).commission_debt || 0;
                             setProfile((p) => p ? { ...p, commission_debt: currentDebt + commission } : p);
-                            push(`✓ تم تأكيد استلام ${formatCurrency(totalFees, currency)} (عمولة: ${formatCurrency(commission, currency)})`, 'success');
+                            push(` تم تأكيد استلام ${formatCurrency(totalFees, currency)} (عمولة: ${formatCurrency(commission, currency)})`, 'success');
                           } else {
                             push('خطأ في تأكيد الدفعة', 'danger');
                           }
@@ -1009,7 +1009,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
                   <div style={{ position: 'relative' }}>
                     <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--bg)', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                      {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 24 }}>👨‍⚖️</span>}
+                      {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Scale size={20} color="var(--gold)" />}
                     </div>
                     <label style={{
                       position: 'absolute', bottom: -4, right: -4,
@@ -1032,7 +1032,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                               const { error } = await supabase.from('profiles').update({ avatar_url }).eq('id', user.id);
                               if (!error) {
                                 setProfile((p) => p ? { ...p, avatar_url } : p);
-                                push('✓ تم تحديث الصورة الشخصية', 'success');
+                                push(' تم تحديث الصورة الشخصية', 'success');
                               }
                             };
                             reader.readAsDataURL(file);
@@ -1057,7 +1057,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                               .eq('id', user.id);
                             if (!error) {
                               setProfile((p) => p ? { ...p, full_name: newName } : p);
-                              push('تم التحديث ✅', 'success');
+                              push('تم التحديث ', 'success');
                             } else {
                               push('خطأ في التحديث', 'danger');
                             }
@@ -1084,7 +1084,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                           }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                         >
-                          ✏️
+                          
                         </button>
                       </div>
                     )}
@@ -1103,7 +1103,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                               .eq('id', user.id);
                             if (!error) {
                               setProfile((p) => p ? { ...p, phone_number: newPhone } : p);
-                              push('تم التحديث ✅', 'success');
+                              push('تم التحديث ', 'success');
                             } else {
                               push('خطأ في التحديث', 'danger');
                             }
@@ -1130,7 +1130,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                           }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                         >
-                          ✏️
+                          
                         </button>
                       </div>
                     )}
@@ -1175,7 +1175,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                       // fall back to the legacy Web Push registration if FCM is not configured.
                       const token = (await requestFcmToken(user.id)) || (await registerPush(user.id));
                       if (token) {
-                        push('✓ تم تفعيل الإشعارات', 'success');
+                        push(' تم تفعيل الإشعارات', 'success');
                       } else {
                         push('تعذّر تسجيل الإشعارات', 'warning');
                       }
@@ -1185,7 +1185,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                   } else {
                     push('المتصفح لا يدعم الإشعارات', 'warning');
                   }
-                }}>🔔 تفعيل الإشعارات</Button>
+                }}> تفعيل الإشعارات</Button>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#F5F8FF', borderRadius: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1219,10 +1219,10 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
               <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>اختر لغة واجهة النظام المفضلة لديك</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
                 {[
-                  { code: 'ar', label: 'العربية', flag: '🇸🇦' },
-                  { code: 'en', label: 'English', flag: '🇬🇧' },
-                  { code: 'fr', label: 'Français', flag: '🇫🇷' },
-                  { code: 'tr', label: 'Türkçe', flag: '🇹🇷' }
+                  { code: 'ar', label: 'العربية', flag: '' },
+                  { code: 'en', label: 'English', flag: '' },
+                  { code: 'fr', label: 'Français', flag: '' },
+                  { code: 'tr', label: 'Türkçe', flag: '' }
                 ].map((lang) => {
                   const isActive = locale === lang.code;
                   return (
@@ -1321,7 +1321,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
               {/* Currency Selector */}
               <div style={{ marginBottom: 16, padding: '12px', background: '#F5F8FF', borderRadius: 12, border: '1px solid #E0E8FF' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <span style={{ fontSize: 18 }}>💱</span>
+                  
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>عملة المكتب</p>
                     <p style={{ fontSize: 10, color: 'var(--muted)' }}>تظهر في كل الفواتير والمدفوعات</p>
@@ -1345,7 +1345,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                 {/* Vodafone Cash */}
                 <div style={{ padding: '14px', background: '#FFF5F5', borderRadius: 12, border: '1px solid #FFE0E0' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: '#E60000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: '#fff', fontSize: 16 }}>📱</span></div>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, background: '#E60000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Wallet size={18} color="#fff" /></div>
                     <div style={{ flex: 1 }}><p style={{ fontSize: 13, fontWeight: 800, color: '#E60000' }}>فودافون كاش</p><p style={{ fontSize: 10, color: 'var(--muted)' }}>رقم المحفظة</p></div>
                   </div>
                   <input
@@ -1365,7 +1365,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                 {/* InstaPay */}
                 <div style={{ padding: '14px', background: '#F5F8FF', borderRadius: 12, border: '1px solid #E0E8FF' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: '#635BFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: '#fff', fontSize: 16 }}>💳</span></div>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, background: '#635BFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CreditCard size={18} color="#fff" /></div>
                     <div style={{ flex: 1 }}><p style={{ fontSize: 13, fontWeight: 800, color: '#635BFF' }}>InstaPay</p><p style={{ fontSize: 10, color: 'var(--muted)' }}>عنوان أو معرّف InstaPay</p></div>
                   </div>
                   <input
@@ -1402,7 +1402,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                         style={{ display: 'none' }}
                       />
                       <div style={{ padding: '10px 14px', background: '#E0E8FF', borderRadius: 8, textAlign: 'center' }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: '#635BFF' }}>{instapayQRUrl || instapayQRPreview ? '📷 تغيير صورة QR' : '📷 رفع صورة QR'}</p>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#635BFF' }}>{instapayQRUrl || instapayQRPreview ? ' تغيير صورة QR' : ' رفع صورة QR'}</p>
                         <p style={{ fontSize: 9, color: 'var(--muted)' }}>التقط صورة لـ QR Code من InstaPay</p>
                       </div>
                     </label>
@@ -1412,7 +1412,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                 {/* Bank Account */}
                 <div style={{ padding: '14px', background: '#F8FCF8', borderRadius: 12, border: '1px solid #E8F4E8' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: '#008800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: '#fff', fontSize: 16 }}>🏦</span></div>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, background: '#008800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Wallet size={18} color="#fff" /></div>
                     <div style={{ flex: 1 }}><p style={{ fontSize: 13, fontWeight: 800, color: '#008800' }}>الحساب البنكي</p><p style={{ fontSize: 10, color: 'var(--muted)' }}>بيانات التحويل البنكي</p></div>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
@@ -1465,7 +1465,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                     const { error } = await supabase.from('profiles').update({ is_auto_renew_enabled: newValue }).eq('id', user.id);
                     if (!error) {
                       setProfile((p) => p ? { ...p, is_auto_renew_enabled: newValue } : p);
-                      push(newValue ? '✓ تم تفعيل التجديد التلقائي' : 'تم إيقاف التجديد التلقائي', 'success');
+                      push(newValue ? ' تم تفعيل التجديد التلقائي' : 'تم إيقاف التجديد التلقائي', 'success');
                     }
                   }}
                   style={{
@@ -1486,7 +1486,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
 
             {/* Invite Links */}
             <Card style={{ padding: 22 }}>
-              <h3 style={{ fontWeight: 800, marginBottom: 14, color: 'var(--navy)' }}>🔗 رابط مكتبك الدائم</h3>
+              <h3 style={{ fontWeight: 800, marginBottom: 14, color: 'var(--navy)' }}> رابط مكتبك الدائم</h3>
               <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>رابط ثابت لمكتبك — شاركه مع أي موكل للدخول مباشرة</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                 <code style={{ flex: 1, fontSize: 11, background: 'var(--bg)', padding: '10px 14px', borderRadius: 8, color: 'var(--navy)', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{origin}/portal/lawyer/{user.id}</code>
@@ -1511,7 +1511,7 @@ export function LawyerPortal({ user, profile: initProfile, onLogout }: LawyerPor
                   fontWeight: 'bold',
                 }}
               >
-                <span>📧</span>
+                <span></span>
                 <span>الدعم الفني</span>
               </a>
             </div>
